@@ -31,13 +31,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: desktop/src-tauri
-      - name: Stub the sidecar binary
-        # clippy/fmt never bundle or run the sidecar, but tauri-build resolves the externalBin path —
-        # and the real binary (bin/cull-server-*) is gitignored, so place a harmless placeholder.
+      - name: Stub build inputs
+        # clippy compiles the crate, so tauri-build / generate_context! validates two paths that are
+        # gitignored (absent in a fresh checkout): the externalBin sidecar and frontendDist. Neither is
+        # bundled or run here — placeholders just let the macro expand.
         run: |
           mkdir -p bin
           printf '#!/bin/sh\n' > bin/cull-server-aarch64-apple-darwin
           chmod +x bin/cull-server-aarch64-apple-darwin
+          mkdir -p ../../frontend/dist
+          echo '<!doctype html><title>stub</title>' > ../../frontend/dist/index.html
       - name: Format (rustfmt)
         run: cargo fmt --check
       - name: Lint (clippy, deny warnings)
