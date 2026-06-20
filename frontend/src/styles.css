@@ -69,6 +69,7 @@ body {
   padding: 7px 12px;
   font-size: 13px;
   cursor: pointer;
+  white-space: nowrap;   /* a label never wraps mid-button; the flex row wraps whole buttons instead */
   transition: background 0.12s, border-color 0.12s, opacity 0.12s;
 }
 .btn:hover:not(:disabled) {
@@ -140,6 +141,56 @@ body {
 .btn-del.active {
   box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 3px currentColor;
   font-weight: 600;
+}
+
+/* ------------------------------------------------------- hover tooltips
+   Friendly, near-instant hints on any control carrying a [data-tip] attribute — so a first-time
+   user can hover any button and see what it does, without the ~1s delay / OS styling of native
+   `title`. The bubble points downward (most controls sit near the top of their container) and is
+   centred on the host. Hosts get position: relative; already-positioned controls (e.g.
+   .lightbox-close) re-assert their own position later in the file and stay their own context. */
+[data-tip] {
+  position: relative;
+}
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-3px);
+  z-index: 60;
+  width: max-content;
+  max-width: 220px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  transition-delay: 0.3s;   /* tiny delay so tooltips don't flash while skimming across a row */
+}
+/* anchor the bubble to the host's LEFT edge — for controls hard against the viewport's left edge
+   (e.g. the home button) where a centred bubble would clip off-screen. */
+[data-tip].tip-start::after {
+  left: 0;
+  transform: translateX(0) translateY(-3px);
+}
+[data-tip].tip-start:hover::after,
+[data-tip].tip-start:focus-visible::after {
+  transform: translateX(0) translateY(0);
 }
 
 /* --------------------------------------------------------- input screen */
@@ -300,21 +351,34 @@ body {
   flex-wrap: wrap;
 }
 
-/* Segmented Burst/Scene grouping-mode toggle. */
+/* Segmented Burst/Scene grouping-mode toggle. No overflow:hidden (it would clip the segments'
+   hover tooltips); the end segments round their own outer corners instead. The 80px min-width
+   floors every segment to the same width in both locales — it clears the widest label, the bold
+   active «Стрічка» (~79px) — so all three stay equal and the control doesn't resize on EN↔UK. */
 .mode-toggle {
   display: inline-flex;
   border: 1px solid var(--border);
   border-radius: 6px;
-  overflow: hidden;
 }
 .mode-btn {
   background: var(--bg-elev2);
   color: var(--muted);
   border: none;
   padding: 7px 14px;
+  min-width: 80px;
   font-size: 13px;
+  text-align: center;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
+}
+.mode-btn:first-child {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+.mode-btn:last-child {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
 }
 .mode-btn + .mode-btn {
   border-left: 1px solid var(--border);
@@ -333,17 +397,26 @@ body {
   display: inline-flex;
   border: 1px solid var(--border);
   border-radius: 6px;
-  overflow: hidden;
 }
 .lang-btn {
   background: var(--bg-elev2);
   color: var(--muted);
   border: none;
   padding: 7px 9px;
+  min-width: 38px;
   font-size: 12px;
   font-weight: 600;
+  text-align: center;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
+}
+.lang-btn:first-child {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+.lang-btn:last-child {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
 }
 .lang-btn + .lang-btn {
   border-left: 1px solid var(--border);
@@ -460,14 +533,19 @@ body {
 
 /* --------------------------------------------------------------- cards */
 .card {
+  position: relative;
   width: 280px;
   background: var(--bg-elev);
   border: 2px solid transparent;
   border-radius: 8px;
-  overflow: hidden;
+  /* overflow stays visible so a card-button's hover tooltip can escape the card; the thumb rounds
+     its own top corners (below) since it's the only opaque child reaching the card's edge. */
   display: flex;
   flex-direction: column;
   transition: opacity 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.card:hover {
+  z-index: 5;   /* lift the hovered card so its tooltip overlays neighbouring cards */
 }
 .card-favorite {
   border-color: var(--green);
@@ -492,6 +570,8 @@ body {
   background: #000;
   aspect-ratio: 4 / 3;
   overflow: hidden;
+  border-top-left-radius: 6px;    /* match the card's inner radius now that .card is overflow:visible */
+  border-top-right-radius: 6px;
 }
 .card-thumb img {
   width: 100%;
@@ -797,8 +877,11 @@ body {
 .session-list { margin-top: 22px; text-align: left; }
 .session-list-head { margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
 .session-row {
+  /* overflow stays visible so the delete button's hover tooltip can escape the row; the two
+     children round their own outer corners (below) to keep the rounded-rect look + clip their
+     hover backgrounds. */
   display: flex; align-items: stretch; gap: 0;
-  width: 100%; margin-bottom: 6px; overflow: hidden;
+  width: 100%; margin-bottom: 6px;
   background: #1c1c1c; border: 1px solid #2c2c2c; border-radius: 8px;
 }
 .session-row:hover { border-color: #3a3a3a; }
@@ -806,12 +889,14 @@ body {
   flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 12px; min-width: 0;
   background: transparent; border: 0; color: #eee; cursor: pointer; text-align: left; font: inherit;
+  border-top-left-radius: 7px; border-bottom-left-radius: 7px;
 }
 .session-row-open:hover { background: #242424; }
 .session-row-del {
   flex: none; padding: 0 14px;
   background: transparent; border: 0; border-left: 1px solid #2c2c2c;
   color: #888; cursor: pointer; font-size: 13px;
+  border-top-right-radius: 7px; border-bottom-right-radius: 7px;
 }
 .session-row-del:hover { background: #3a2424; color: #e88; }
 .session-row-del:disabled { opacity: 0.4; cursor: default; }

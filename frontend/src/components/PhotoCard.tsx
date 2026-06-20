@@ -31,6 +31,11 @@ function PhotoCardImpl({ photo, selected, onOpen, onDecide, cardRef }: Props) {
           ? t("badge_maybe")
           : "";
 
+  // tooltip / aria text for each action, toggling between mark and un-mark
+  const favTip = t(photo.state === "favorite" ? "remove_favorite" : "mark_favorite");
+  const maybeTip = t(photo.state === "maybe" ? "remove_maybe" : "mark_maybe");
+  const trashTip = t(photo.state === "delete" ? "remove_trash" : "mark_trash");
+
   return (
     <div
       ref={cardRef}
@@ -62,29 +67,34 @@ function PhotoCardImpl({ photo, selected, onOpen, onDecide, cardRef }: Props) {
         </div>
 
         <div className="card-actions">
+          {/* Icon-only on the dense card grid: equal width, never wraps, identical in every
+              language. The full label lives in the hover tooltip (data-tip) and aria-label. */}
           <button
             className={`btn btn-sm btn-fav${photo.state === "favorite" ? " active" : ""}`}
             onClick={() => onDecide(photo.state === "favorite" ? "undo" : "favorite")}
             aria-pressed={photo.state === "favorite"}
-            title={`${photo.state === "favorite" ? t("remove_favorite") : t("mark_favorite")} (F)`}
+            aria-label={favTip}
+            data-tip={`${favTip} (F)`}
           >
-            {t("btn_fav")}
+            {t("btn_fav_short")}
             <kbd className="btn-kbd">f</kbd>
           </button>
           <button
             className={`btn btn-sm btn-maybe${photo.state === "maybe" ? " active" : ""}`}
             onClick={() => onDecide(photo.state === "maybe" ? "undo" : "maybe")}
             aria-pressed={photo.state === "maybe"}
-            title={`${photo.state === "maybe" ? t("remove_maybe") : t("mark_maybe")} (M)`}
+            aria-label={maybeTip}
+            data-tip={`${maybeTip} (M)`}
           >
-            {t("btn_maybe")}
+            {t("btn_maybe_short")}
             <kbd className="btn-kbd">m</kbd>
           </button>
           <button
             className={`btn btn-sm btn-del${photo.state === "delete" ? " active" : ""}`}
             onClick={() => onDecide(photo.state === "delete" ? "undo" : "delete")}
             aria-pressed={photo.state === "delete"}
-            title={`${photo.state === "delete" ? t("remove_trash") : t("mark_trash")} (X)`}
+            aria-label={trashTip}
+            data-tip={`${trashTip} (X)`}
           >
             {t("btn_trash_short")}
             <kbd className="btn-kbd">x</kbd>
@@ -93,9 +103,10 @@ function PhotoCardImpl({ photo, selected, onOpen, onDecide, cardRef }: Props) {
             className="btn btn-sm btn-ghost"
             onClick={() => onDecide("undo")}
             disabled={photo.state === "none"}
-            title={`${t("clear_label")} (U)`}
+            aria-label={t("clear_label")}
+            data-tip={`${t("clear_label")} (U)`}
           >
-            {t("btn_undo")}
+            {t("btn_undo_short")}
             <kbd className="btn-kbd">u</kbd>
           </button>
         </div>

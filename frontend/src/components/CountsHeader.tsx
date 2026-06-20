@@ -63,7 +63,12 @@ export default function CountsHeader({
     <header className="counts-header">
       <div className="counts-header-row">
         <div className="counts-title">
-          <button className="btn btn-ghost home-btn" onClick={onHome} title={t("new_session")}>
+          <button
+            className="btn btn-ghost home-btn tip-start"
+            onClick={onHome}
+            aria-label={t("new_session")}
+            data-tip={t("new_session")}
+          >
             ←
           </button>
           <div>
@@ -90,7 +95,7 @@ export default function CountsHeader({
                 <button
                   className="btn btn-ghost rename-btn"
                   onClick={() => setEditing(true)}
-                  title={t("rename_session")}
+                  data-tip={t("rename_session")}
                   aria-label={t("rename_session")}
                 >
                   ✎
@@ -118,7 +123,7 @@ export default function CountsHeader({
               className={`mode-btn${mode === "burst" ? " active" : ""}`}
               aria-pressed={mode === "burst"}
               onClick={() => onSetMode("burst")}
-              title={t("mode_burst_title")}
+              data-tip={t("mode_burst_title")}
             >
               {t("mode_burst")}
             </button>
@@ -127,7 +132,7 @@ export default function CountsHeader({
               className={`mode-btn${mode === "scene" ? " active" : ""}`}
               aria-pressed={mode === "scene"}
               onClick={() => onSetMode("scene")}
-              title={t("mode_scene_title")}
+              data-tip={t("mode_scene_title")}
             >
               {t("mode_scene")}
             </button>
@@ -136,7 +141,7 @@ export default function CountsHeader({
               className={`mode-btn${mode === "feed" ? " active" : ""}`}
               aria-pressed={mode === "feed"}
               onClick={() => onSetMode("feed")}
-              title={t("mode_feed_title")}
+              data-tip={t("mode_feed_title")}
             >
               {t("mode_feed")}
             </button>
@@ -151,10 +156,15 @@ export default function CountsHeader({
                   onAcceptSuggestions();
                   setConfirmAccept(false);
                 }}
+                data-tip={t("accept_title")}
               >
                 {t("confirm")}
               </button>
-              <button className="btn btn-sm btn-ghost" onClick={() => setConfirmAccept(false)}>
+              <button
+                className="btn btn-sm btn-ghost"
+                onClick={() => setConfirmAccept(false)}
+                data-tip={t("cancel")}
+              >
                 {t("cancel")}
               </button>
             </div>
@@ -163,7 +173,7 @@ export default function CountsHeader({
               className="btn btn-ghost"
               disabled={nSuggestions === 0}
               onClick={() => setConfirmAccept(true)}
-              title={nSuggestions === 0 ? t("accept_none_title") : t("accept_title")}
+              data-tip={nSuggestions === 0 ? t("accept_none_title") : t("accept_title")}
             >
               {t("accept_picks")}
               {nSuggestions ? ` (${nSuggestions})` : ""}
@@ -173,6 +183,7 @@ export default function CountsHeader({
           <button
             className={`btn ${hideSorted ? "btn-accent" : "btn-ghost"}`}
             onClick={onToggleHide}
+            data-tip={hideSorted ? t("show_all_title") : t("hide_sorted_title")}
           >
             {hideSorted ? t("show_all") : t("hide_sorted")}
           </button>
@@ -180,7 +191,7 @@ export default function CountsHeader({
             className="btn btn-accent"
             onClick={onExportZip}
             disabled={nPicks === 0}
-            title={nPicks === 0 ? t("download_disabled_title") : t("download_title")}
+            data-tip={nPicks === 0 ? t("download_disabled_title") : t("download_title")}
           >
             {t("download_picks")}
             {nPicks ? ` (${nPicks})` : ""}

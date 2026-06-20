@@ -41,7 +41,7 @@ export default function GroupGrid({
             {t("group")} {group.idx + 1} — {groupLabel(group.photos.length)}{" "}
             <span className="muted small">{group.when}</span>
             {group.close_call && (
-              <span className="close-call-badge" title={t("close_call_title")}>
+              <span className="close-call-badge" data-tip={t("close_call_title")}>
                 {t("close_call")}
               </span>
             )}

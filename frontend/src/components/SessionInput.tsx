@@ -89,7 +89,13 @@ export default function SessionInput({ onOpen }: Props) {
           />
           <div className="folder-actions">
             {inTauri() && (
-              <button type="button" className="btn" onClick={choose} disabled={mutation.isPending}>
+              <button
+                type="button"
+                className="btn"
+                onClick={choose}
+                disabled={mutation.isPending}
+                data-tip={t("choose_folder_title")}
+              >
                 {t("choose_folder")}
               </button>
             )}
@@ -97,6 +103,7 @@ export default function SessionInput({ onOpen }: Props) {
               type="submit"
               className="btn btn-accent"
               disabled={mutation.isPending || !path.trim()}
+              data-tip={t("analyze_folder_title")}
             >
               {mutation.isPending ? t("analyzing") : t("analyze_folder")}
             </button>
@@ -132,7 +139,7 @@ export default function SessionInput({ onOpen }: Props) {
                 </button>
                 <button
                   className="session-row-del"
-                  title={t("delete_session")}
+                  data-tip={t("delete_session")}
                   aria-label={t("delete_session")}
                   disabled={delMutation.isPending}
                   onClick={() => {
