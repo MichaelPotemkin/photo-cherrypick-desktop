@@ -121,8 +121,8 @@ def analyze(pil: Image.Image, ctime: float | None = None) -> dict:
             "eye_sharp": float(eye_sharp), "face_sharp": float(face_sharp), "face_frac": face_frac,
             "eyes_occluded": bool(sunglasses >= SUNGLASSES_T),
         }
-        faces = [primary_face] + [_subject_metrics(pil, rgb, gray, b, l, W, H)
-                                  for (b, l) in all_faces[1:]]
+        faces = [primary_face] + [_subject_metrics(pil, rgb, gray, b, lm, W, H)
+                                  for (b, lm) in all_faces[1:]]
     else:
         offset = face_cy = face_top = None
         face_frac = face_sharp = eye_sharp = thirds = sep = 0.0

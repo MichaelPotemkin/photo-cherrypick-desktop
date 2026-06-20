@@ -1,0 +1,44 @@
+name: ci-rust
+
+# Rust/Tauri shell gate. Runs on macOS (Tauri/WebKit needs it; matches the release runner) and is
+# path-filtered to desktop/** so the expensive macOS minutes aren't spent on frontend/Python-only PRs.
+on:
+  pull_request:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/ci-rust.yml"
+  push:
+    branches: [main]
+    paths:
+      - "desktop/**"
+      - ".github/workflows/ci-rust.yml"
+
+concurrency:
+  group: ci-rust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: desktop/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: Stub the sidecar binary
+        # clippy/fmt never bundle or run the sidecar, but tauri-build resolves the externalBin path —
+        # and the real binary (bin/cull-server-*) is gitignored, so place a harmless placeholder.
+        run: |
+          mkdir -p bin
+          printf '#!/bin/sh\n' > bin/cull-server-aarch64-apple-darwin
+          chmod +x bin/cull-server-aarch64-apple-darwin
+      - name: Format (rustfmt)
+        run: cargo fmt --check
+      - name: Lint (clippy, deny warnings)
+        run: cargo clippy --all-targets -- -D warnings

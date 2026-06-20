@@ -6,7 +6,6 @@ export (zip + csv) -> rename -> delete. Runs synchronously (CULL_SYNC) with fake
 import os
 from pathlib import Path
 
-import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
