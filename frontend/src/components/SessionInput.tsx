@@ -4,6 +4,7 @@ import { createSession, deleteSession, listSessions } from "../api";
 import type { SessionListItem } from "../api";
 import { useI18n } from "../i18n";
 import { inTauri, pickFolder } from "../lib/tauri";
+import HelpButton from "./HelpGuide";
 import LangToggle from "./LangToggle";
 
 interface Props {
@@ -75,23 +76,28 @@ export default function SessionInput({ onOpen }: Props) {
       <div className="input-card">
         <div className="input-card-top">
           <h1>{t("app_title")}</h1>
-          <LangToggle />
+          <div className="input-top-actions">
+            <HelpButton />
+            <LangToggle />
+          </div>
         </div>
         <p className="muted">{t("home_tagline")}</p>
-        <form onSubmit={submit}>
-          <input
-            type="text"
-            className="url-input"
-            placeholder="/Users/you/Shoots/2026-06-14"
-            value={path}
-            onChange={(e) => setPath(e.target.value)}
-            autoFocus
-          />
-          <div className="folder-actions">
+        <form onSubmit={submit} className="folder-form">
+          <div className="folder-input-row">
+            <input
+              type="text"
+              className="url-input"
+              placeholder="/Users/you/Shoots/2026-06-14"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              autoFocus
+            />
+            {/* Native folder picker (Tauri only — a browser can't read an absolute path).
+                Picking a folder analyzes it immediately, so the user never has to type. */}
             {inTauri() && (
               <button
                 type="button"
-                className="btn"
+                className="btn browse-btn"
                 onClick={choose}
                 disabled={mutation.isPending}
                 data-tip={t("choose_folder_title")}
@@ -99,15 +105,15 @@ export default function SessionInput({ onOpen }: Props) {
                 {t("choose_folder")}
               </button>
             )}
-            <button
-              type="submit"
-              className="btn btn-accent"
-              disabled={mutation.isPending || !path.trim()}
-              data-tip={t("analyze_folder_title")}
-            >
-              {mutation.isPending ? t("analyzing") : t("analyze_folder")}
-            </button>
           </div>
+          <button
+            type="submit"
+            className="btn btn-accent analyze-btn"
+            disabled={mutation.isPending || !path.trim()}
+            data-tip={t("analyze_folder_title")}
+          >
+            {mutation.isPending ? t("analyzing") : t("analyze_folder")}
+          </button>
         </form>
         {mutation.isError && (
           <p className="error">

@@ -36,6 +36,27 @@ const en: Dict = {
   delete_session: "Delete session",
   delete_confirm:
     'Delete "{name}"? This removes the session and its cull decisions (your photo files are not touched).',
+  close: "Close",
+
+  // --- how-to guide ---
+  help_button: "How to use",
+  help_title: "How to use Photo Cherrypick",
+  help_loading_hint:
+    "While your photos analyze, here's how the workflow goes — your decisions are saved as you make them.",
+  help_intro:
+    "Analyze a folder once; the three passes below all work on that same set of photos. Your ★ keep / ? maybe / 🗑 trash decisions are saved and carry across every pass — you never re-import.",
+  help_pass1_title: "Pass 1 · Cull (Burst)",
+  help_pass1_body:
+    "Each group is a burst of near-identical frames. Pick the keeper from each: ★ keep, ? maybe, 🗑 trash — keys f / m / x (u to undo). The ✨ suggested frame is the algorithm's best guess; trust your own eye.",
+  help_pass2_title: "Pass 2 · Group (Scene)",
+  help_pass2_body:
+    "Switch to Scene to see your keepers regrouped by scene and outfit, ignoring time — handy for building a gallery or Instagram set. Trashed photos are left out.",
+  help_pass3_title: "Pass 3 · Arrange (Feed)",
+  help_pass3_body:
+    "Feed lays your ★ favorites into a balanced grid — alternating shot scale, scenes spread out — so you can see how the set reads together.",
+  help_download:
+    "When you're happy, Download picks saves your favorites and maybes as a ZIP of the untouched original files. Nothing is altered, moved, or uploaded.",
+  help_got_it: "Got it",
 
   // --- header ---
   new_session: "New session",
@@ -85,7 +106,7 @@ const en: Dict = {
   empty_hidden: "Nothing to show. Try turning off “Hide sorted”.",
 
   // --- card / lightbox ---
-  badge_suggested: "suggested",
+  badge_suggested: "✨ suggested",
   badge_kept: "★ kept",
   badge_maybe: "? maybe",
   badge_trash: "🗑 trash",
@@ -116,7 +137,7 @@ const en: Dict = {
   next_photo_title: "Next photo (→)",
   close_esc: "Close (Esc)",
   hover_zoom: "Hover to zoom — move the cursor to look around",
-  suggested_caption: "★ suggested",
+  suggested_caption: "✨ suggested",
 
   // --- feed ---
   feed_planning: "Planning feed…",
@@ -202,6 +223,27 @@ const uk: Dict = {
   delete_session: "Видалити сесію",
   delete_confirm:
     "Видалити «{name}»? Це прибере сесію та її рішення щодо відбору (ваші файли фото не зачіпаються).",
+  close: "Закрити",
+
+  // --- how-to guide ---
+  help_button: "Як користуватися",
+  help_title: "Як користуватися Photo Cherrypick",
+  help_loading_hint:
+    "Поки фото аналізуються, ось як влаштований процес — ваші рішення зберігаються автоматично.",
+  help_intro:
+    "Проаналізуйте теку один раз; усі три проходи нижче працюють із тим самим набором фото. Ваші позначки ★ обрати / ? під питанням / 🗑 видалити зберігаються й переходять між усіма проходами — повторно завантажувати не потрібно.",
+  help_pass1_title: "Прохід 1 · Відбір (Серія)",
+  help_pass1_body:
+    "Кожна група — це серія майже однакових кадрів. Оберіть найкращий: ★ обрати, ? під питанням, 🗑 видалити — клавіші f / m / x (u — скасувати). Кадр із позначкою ✨ — найкращий за оцінкою алгоритму; але довіряйте власному оку.",
+  help_pass2_title: "Прохід 2 · Групування (Сцена)",
+  help_pass2_body:
+    "Перемкніться на «Сцену», щоб побачити обране, перегруповане за місцем і образом, без огляду на час — зручно для галереї чи набору в Instagram. Видалені фото не показуються.",
+  help_pass3_title: "Прохід 3 · Розкладка (Стрічка)",
+  help_pass3_body:
+    "«Стрічка» розкладає ваші ★ обрані у збалансовану сітку — чергування планів, сцени рознесені — щоб побачити, як набір виглядає разом.",
+  help_download:
+    "Коли все готово, «Завантажити обране» збереже обране й позначене «під питанням» як ZIP з недоторканими оригіналами. Нічого не змінюється, не переміщується й не вивантажується в інтернет.",
+  help_got_it: "Зрозуміло",
 
   new_session: "Нова сесія",
   rename_session: "Перейменувати сесію",
@@ -248,7 +290,7 @@ const uk: Dict = {
     "Два найкращі кадри відрізняються на крихту — алгоритм тут не впевнений. Довіртеся власному оку.",
   empty_hidden: "Немає чого показати. Спробуйте вимкнути «Сховати розібрані».",
 
-  badge_suggested: "підказка",
+  badge_suggested: "✨ підказка",
   badge_kept: "★ обрано",
   badge_maybe: "? під питанням",
   badge_trash: "🗑 видалено",
@@ -279,7 +321,7 @@ const uk: Dict = {
   next_photo_title: "Наступне фото (→)",
   close_esc: "Закрити (Esc)",
   hover_zoom: "Наведіть, щоб збільшити — рухайте курсором, щоб роздивитися",
-  suggested_caption: "★ підказка",
+  suggested_caption: "✨ підказка",
 
   feed_planning: "Готуємо стрічку…",
   feed_failed: "Не вдалося скласти стрічку",
