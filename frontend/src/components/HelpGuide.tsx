@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useI18n } from "../i18n";
+import { createPortal } from "react-dom";
+import { useI18n, tVariants } from "../i18n";
+import StableLabel from "./StableLabel";
 
 // The how-to guide for the cull → scene → feed workflow. Three shapes share one set of strings:
 //   <HelpContent/> — the steps body, embedded inline on the loading screen,
@@ -29,6 +31,11 @@ export function HelpContent() {
 export function HelpModal({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
   const modalRef = useRef<HTMLDivElement>(null);
+  // Keep the latest onClose without re-running the mount effect — onClose gets a new identity on every
+  // HelpButton render (e.g. when the language changes while the modal is open), which would otherwise
+  // re-steal focus back into the dialog.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => {
     const prevFocus = document.activeElement as HTMLElement | null;
@@ -48,7 +55,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
       e.stopPropagation();
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        closeRef.current();
       } else if (e.key === "Tab") {
         const items = focusables();
         if (items.length === 0) {
@@ -73,9 +80,11 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
       window.removeEventListener("keydown", onKey, true);
       prevFocus?.focus?.(); // restore focus to the trigger on close
     };
-  }, [onClose]);
+  }, []);
 
-  return (
+  // Portal to <body>: the sticky header's `backdrop-filter` would otherwise trap this fixed overlay
+  // inside the header box (it establishes a containing block for fixed-position descendants).
+  return createPortal(
     <div className="help-overlay" onClick={onClose}>
       <div
         className="help-modal"
@@ -97,7 +106,8 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -112,7 +122,10 @@ export default function HelpButton({ className }: { className?: string }) {
         onClick={() => setOpen(true)}
         data-tip={t("help_title")}
       >
-        ⓘ {t("help_button")}
+        <StableLabel
+          text={`ⓘ ${t("help_button")}`}
+          reserve={tVariants("help_button").map((v) => `ⓘ ${v}`)}
+        />
       </button>
       {open && <HelpModal onClose={() => setOpen(false)} />}
     </>
