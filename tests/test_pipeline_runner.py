@@ -57,12 +57,12 @@ def test_full_run(patched, tmp_store, tmp_path):
     # {a,b}, {c,d}, {e}
     assert sorted(len(g["photos"]) for g in groups) == [1, 2, 2]
 
-    # every overall in [0,1]; multi-shot groups have exactly one suggested
+    # every overall in [0,1]; every group has exactly one suggested pick — including the single shot,
+    # whose only frame is the pick (so Accept picks no longer skips it). See issue #36.
     for g in groups:
         for p in g["photos"]:
             assert 0.0 <= p["overall"] <= 1.0
-        if len(g["photos"]) > 1:
-            assert sum(p["suggested"] for p in g["photos"]) == 1
+        assert sum(p["suggested"] for p in g["photos"]) == 1
 
     def suggested_name(group):
         return next(p["filename"] for p in group["photos"] if p["suggested"])

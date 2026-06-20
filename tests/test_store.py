@@ -33,7 +33,7 @@ def test_migrate_self_heals_old_schema(tmp_path):
     photo_cols = {r[1] for r in store._conn.execute("PRAGMA table_info(photos)")}
     assert {"original_path", "preview_path", "thumb_path", "is_raw", "camera", "ctime"} <= photo_cols
     assert "close_call" in {r[1] for r in store._conn.execute("PRAGMA table_info(groups)")}
-    assert store._conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert store._conn.execute("PRAGMA user_version").fetchone()[0] == 2
     assert store.get_session("s1")["title"] == "Old"   # existing data preserved
 
     # the migrated DB works end-to-end against the new columns
@@ -85,8 +85,34 @@ def test_migrate_is_idempotent_on_current_schema(tmp_path):
     db = tmp_path / "cur.db"
     CullStore(db).close()
     store = CullStore(db)   # second open: migrations find nothing to add
-    assert store._conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert store._conn.execute("PRAGMA user_version").fetchone()[0] == 2
     store.close()
+
+
+def test_migrate_v2_backfills_single_shot_suggested(tmp_path):
+    """A pre-v2 DB left single-shot groups un-suggested, so 'Accept picks' skipped them. Opening must
+    backfill the sole frame of each single-member group, without touching multi-shot groups."""
+    db = tmp_path / "v1.db"
+    store = CullStore(db)
+    sid = store.create_session("/x")
+    common = dict(emb=None, meta={}, axes={}, cats={}, reasons=[], in_group_order=0)
+    solo = store.add_photo(sid, "solo.jpg", "/x/solo.jpg", False)
+    store.save_analysis(solo, overall=0.5, group_idx=0, suggested=False, **common)   # single-shot group
+    # a 2-frame burst (group 1): one suggested, one not — must be left alone
+    b0 = store.add_photo(sid, "b0.jpg", "/x/b0.jpg", False)
+    b1 = store.add_photo(sid, "b1.jpg", "/x/b1.jpg", False)
+    store.save_analysis(b0, overall=0.8, group_idx=1, suggested=True, **{**common, "in_group_order": 0})
+    store.save_analysis(b1, overall=0.7, group_idx=1, suggested=False, **{**common, "in_group_order": 1})
+    store._conn.execute("PRAGMA user_version = 1")   # simulate a pre-v2 DB
+    store._conn.commit()
+    store.close()
+
+    store2 = CullStore(db)   # opening runs the v2 data migration
+    sug = dict(store2._conn.execute("SELECT photo_id, suggested FROM analyses"))
+    assert sug[solo] == 1                              # single-shot backfilled
+    assert sug[b0] == 1 and sug[b1] == 0               # burst untouched
+    assert store2.count_pending_suggestions(sid) == 2  # solo + b0, now both counted by Accept picks
+    store2.close()
 
 
 def test_session_crud_and_list(tmp_store):
