@@ -4,6 +4,54 @@ A downloadable photo-culling app for photographers. Point it at a **local folder
 it scores and groups near-duplicate bursts **offline**, you cull with a keyboard-driven UI, and it
 hands the keepers back as the **original files** in sorted folders — ready to edit.
 
+## Download (macOS)
+
+**Photo Cherrypick** is distributed as an unsigned macOS app for **Apple Silicon (arm64) only** —
+M1/M2/M3/M4 Macs. It will **not** run on Intel Macs.
+
+- **Primary download — itch.io:** **https://michaelpotemkin.itch.io/photo-cherrypick**
+  Download `Photo Cherrypick.dmg`, open it, and drag **Photo Cherrypick** into **Applications**.
+- **Also on GitHub Releases:** **https://github.com/MichaelPotemkin/photo-cherrypick-desktop/releases/latest**
+  (the `.dmg` is attached to each release; GitHub Releases is also the source for in-app updates).
+
+### First launch: bypassing Gatekeeper (required, one time)
+
+The app is **not signed with an Apple Developer ID and is not notarized**, so macOS Gatekeeper
+blocks it on first launch ("Photo Cherrypick is damaged / cannot be opened / from an unidentified
+developer"). This is expected for an unsigned app — do one of the following **once**:
+
+**Option A — right-click → Open (no Terminal):**
+1. In **Applications**, right-click (or Control-click) **Photo Cherrypick**.
+2. Choose **Open**, then click **Open** again in the dialog.
+3. macOS remembers the choice; afterwards launch it normally.
+
+**Option B — clear the quarantine flag (Terminal):**
+If right-click → Open still reports the app as "damaged" (common when the `.dmg` was downloaded via
+a browser that sets the quarantine attribute), strip the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Photo Cherrypick.app"
+```
+
+Then open the app normally.
+
+### First launch is slow — and needs internet once
+
+- **First open takes a while (tens of seconds).** The app bundles its Python image-analysis engine
+  (PyTorch + OpenCV) as a single frozen binary, which **self-extracts on first run**. Subsequent
+  launches are fast. Don't force-quit it during the first launch — let it finish.
+- **One-time internet access required.** On first analysis, the app **downloads the ML model
+  weights** (CLIP, etc.) to a local cache. After that it runs **fully offline** — your photos never
+  leave your Mac.
+- **It's a large app (~1–2 GB).** Bundling the full ML stack makes the download and on-disk
+  footprint large; this is normal.
+
+### Updates
+
+After the first install, **Photo Cherrypick updates itself**. It checks GitHub Releases on launch
+and, when a newer version is available, downloads and installs the update **in place** (the same way
+the Claude desktop app updates) — you don't need to revisit itch.io or GitHub to stay current.
+
 This is the Phase-1 pivot from the hosted web app (paste a Gallera URL → cull → download). See
 [`docs/PHASE1-REPORT.md`](docs/PHASE1-REPORT.md) for what's built and verified, and the PRD in the
 sibling `photo-cherrypick` repo (`docs/prd/phase1-mac-mvp.md`).

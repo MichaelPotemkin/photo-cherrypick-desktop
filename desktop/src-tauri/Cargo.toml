@@ -1,6 +1,6 @@
 [package]
 name = "photo-cherrypick-desktop"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "Local-first photo culling desktop app"
 
@@ -11,3 +11,4 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
