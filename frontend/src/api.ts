@@ -70,6 +70,7 @@ export interface SessionSummary {
   status: SessionStatus;
   n_total: number;
   counts: Counts;
+  n_suggestions: number; // undecided best-of-burst picks "Accept picks" will favorite
 }
 
 export interface GroupsResponse {

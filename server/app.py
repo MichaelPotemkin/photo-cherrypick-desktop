@@ -203,9 +203,25 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         return FileResponse(path)
 
     # --- SPA static (served at / when built) ---
+    # Serve hashed build assets from /assets, and fall everything else back to index.html so a hard
+    # refresh / deep link to a client-side route (e.g. /session/<id>) doesn't 404. Registered after
+    # the /api routes, so those still win; /api/* 404s stay JSON.
     spa = Path(__file__).resolve().parent.parent / "frontend" / "dist"
     if spa.is_dir():
-        app.mount("/", StaticFiles(directory=str(spa), html=True), name="spa")
+        spa_root = spa.resolve()
+        index_html = spa / "index.html"
+        if (spa / "assets").is_dir():
+            app.mount("/assets", StaticFiles(directory=str(spa / "assets")), name="assets")
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        def spa_fallback(full_path: str):
+            if full_path.startswith("api/"):
+                raise HTTPException(404, "not found")
+            candidate = (spa / full_path).resolve()
+            # serve a real top-level file (favicon, etc.); guard against path traversal
+            if full_path and candidate.is_file() and spa_root in candidate.parents:
+                return FileResponse(candidate)
+            return FileResponse(index_html)
 
     return app
 
