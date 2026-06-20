@@ -120,13 +120,9 @@ export default function SessionView({ sessionId, onHome }: Props) {
 
   const data: GroupsResponse | undefined = groupsQuery.data;
 
-  // How many best-of-burst suggestions are still undecided (drives the "Accept picks (N)" button).
-  const nSuggestions = useMemo(() => {
-    let n = 0;
-    for (const g of data?.groups ?? [])
-      for (const p of g.photos) if (p.suggested && p.state === "none") n += 1;
-    return n;
-  }, [data]);
+  // Undecided best-of-burst suggestions (drives the "Accept picks (N)" button). Comes from the
+  // server (always the burst-suggested count) so it matches what Accept does, even in scene/feed view.
+  const nSuggestions = data?.session.n_suggestions ?? 0;
 
   // Current state of a photo by id (for toggle behaviour).
   const photoState = useCallback(

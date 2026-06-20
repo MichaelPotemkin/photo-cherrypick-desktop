@@ -39,6 +39,8 @@ def session_summary(store: CullStore, sess: dict) -> dict:
         "status": sess["status"],
         "n_total": sess["n_total"],
         "counts": store.counts(sess["id"], sess["n_total"]),
+        # undecided best-of-burst picks "Accept picks" will favorite — authoritative, view-independent
+        "n_suggestions": store.count_pending_suggestions(sess["id"]),
     }
 
 

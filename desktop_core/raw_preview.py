@@ -59,6 +59,22 @@ def _raw_embedded_preview(path: Path) -> Image.Image | None:
         return None
 
 
+def raw_exif(path: Path):
+    """EXIF read straight from a RAW file's embedded preview, as a PIL Exif object (or None).
+
+    `load_rgb` returns developed RGB pixels that have lost their EXIF, so RAW capture time / camera
+    body must be read here instead. The embedded preview JPEG carries the metadata."""
+    try:
+        import rawpy
+        with rawpy.imread(str(path)) as raw:
+            thumb = raw.extract_thumb()
+        if thumb.format == rawpy.ThumbFormat.JPEG:
+            return Image.open(io.BytesIO(thumb.data)).getexif()
+    except Exception:
+        return None
+    return None
+
+
 def _raw_full_decode(path: Path) -> Image.Image | None:
     """Last resort: actually develop the RAW (slow). Used only if no embedded preview."""
     try:

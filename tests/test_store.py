@@ -63,6 +63,23 @@ def test_accept_suggestions_favorites_only_undecided(tmp_store):
     assert tmp_store.accept_suggestions(sid) == 0   # idempotent — nothing left undecided
 
 
+def test_count_pending_suggestions(tmp_store):
+    sid = tmp_store.create_session("/x")
+    common = dict(emb=None, meta={}, axes={}, cats={}, reasons=[], in_group_order=0)
+    p1 = tmp_store.add_photo(sid, "a.jpg", "/x/a.jpg", False)
+    p2 = tmp_store.add_photo(sid, "b.jpg", "/x/b.jpg", False)
+    p3 = tmp_store.add_photo(sid, "c.jpg", "/x/c.jpg", False)
+    tmp_store.save_analysis(p1, overall=0.8, group_idx=0, suggested=True, **common)
+    tmp_store.save_analysis(p2, overall=0.7, group_idx=1, suggested=True, **common)
+    tmp_store.save_analysis(p3, overall=0.6, group_idx=2, suggested=False, **common)
+
+    assert tmp_store.count_pending_suggestions(sid) == 2    # both suggested + undecided
+    tmp_store.add_decision(sid, p1, "favorite")
+    assert tmp_store.count_pending_suggestions(sid) == 1    # p1 now decided
+    tmp_store.add_decision(sid, p2, "delete")
+    assert tmp_store.count_pending_suggestions(sid) == 0    # a non-favorite decision still counts as decided
+
+
 def test_migrate_is_idempotent_on_current_schema(tmp_path):
     """Opening a current-schema DB twice must not error (all columns already present)."""
     db = tmp_path / "cur.db"

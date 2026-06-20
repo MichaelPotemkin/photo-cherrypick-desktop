@@ -1,9 +1,10 @@
 import { useI18n, type Lang } from "../i18n";
 
 // Two-segment EN / УК language switch (persisted in localStorage by the i18n provider).
-const LANGS: { code: Lang; label: string }[] = [
-  { code: "en", label: "EN" },
-  { code: "uk", label: "УК" },
+// `name` is the endonym shown in the hover tooltip (kept in its own language by convention).
+const LANGS: { code: Lang; label: string; name: string }[] = [
+  { code: "en", label: "EN", name: "English" },
+  { code: "uk", label: "УК", name: "Українська" },
 ];
 
 export default function LangToggle() {
@@ -16,6 +17,10 @@ export default function LangToggle() {
           type="button"
           className={`lang-btn${lang === l.code ? " active" : ""}`}
           aria-pressed={lang === l.code}
+          // visible label kept inside the accessible name (WCAG 2.5.3 Label in Name) while still
+          // exposing the friendlier endonym, e.g. "EN — English" / "УК — Українська"
+          aria-label={`${l.label} — ${l.name}`}
+          data-tip={l.name}
           onClick={() => setLang(l.code)}
         >
           {l.label}

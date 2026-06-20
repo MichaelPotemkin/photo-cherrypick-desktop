@@ -42,6 +42,11 @@ export default function Lightbox({
   const photo = group.photos[index];
   if (!photo) return null;
 
+  // tooltip / aria text for each action, toggling between mark and un-mark
+  const favTip = t(photo.state === "favorite" ? "remove_favorite" : "mark_favorite");
+  const maybeTip = t(photo.state === "maybe" ? "remove_maybe" : "mark_maybe");
+  const trashTip = t(photo.state === "delete" ? "remove_trash" : "mark_trash");
+
   function onMove(e: React.MouseEvent<HTMLDivElement>) {
     const r = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - r.left) / r.width) * 100;
@@ -68,26 +73,40 @@ export default function Lightbox({
   return (
     <div className="lightbox-overlay" onClick={onClose}>
       <div className="lightbox" onClick={(e) => e.stopPropagation()}>
-        <button className="lightbox-close" onClick={onClose} title={t("close_esc")}>
+        <button
+          className="lightbox-close"
+          onClick={onClose}
+          aria-label={t("close_esc")}
+          data-tip={t("close_esc")}
+        >
           ✕
         </button>
 
         {/* Group navigation bar */}
         <div className="lightbox-groupnav">
-          <button className="btn btn-ghost groupnav-btn" onClick={onPrevGroup} title={t("prev_group_title")}>
+          <button className="btn btn-ghost groupnav-btn" onClick={onPrevGroup} data-tip={t("prev_group_title")}>
             {t("prev_group")}
           </button>
           <span className="groupnav-label">
             {t("group")} {groupNumber}/{groupCount} — {groupLabel}
-            {group.close_call && <span className="close-call-badge">{t("close_call")}</span>}
+            {group.close_call && (
+              <span className="close-call-badge" data-tip={t("close_call_title")}>
+                {t("close_call")}
+              </span>
+            )}
           </span>
-          <button className="btn btn-ghost groupnav-btn" onClick={onNextGroup} title={t("next_group_title")}>
+          <button className="btn btn-ghost groupnav-btn" onClick={onNextGroup} data-tip={t("next_group_title")}>
             {t("next_group")}
           </button>
         </div>
 
         <div className="lightbox-main">
-          <button className="nav-arrow nav-prev" onClick={onPrev} title={t("prev_photo_title")}>
+          <button
+            className="nav-arrow nav-prev"
+            onClick={onPrev}
+            aria-label={t("prev_photo_title")}
+            data-tip={t("prev_photo_title")}
+          >
             ‹
           </button>
 
@@ -107,7 +126,12 @@ export default function Lightbox({
             />
           </div>
 
-          <button className="nav-arrow nav-next" onClick={onNext} title={t("next_photo_title")}>
+          <button
+            className="nav-arrow nav-next"
+            onClick={onNext}
+            aria-label={t("next_photo_title")}
+            data-tip={t("next_photo_title")}
+          >
             ›
           </button>
         </div>
@@ -119,7 +143,8 @@ export default function Lightbox({
             className={`btn btn-fav${photo.state === "favorite" ? " active" : ""}`}
             onClick={() => onDecide(photo.state === "favorite" ? "undo" : "favorite")}
             aria-pressed={photo.state === "favorite"}
-            title={`${photo.state === "favorite" ? t("remove_favorite") : t("mark_favorite")} (F)`}
+            aria-label={favTip}
+            data-tip={`${favTip} (F)`}
           >
             {t("btn_fav")}
             <kbd className="btn-kbd">f</kbd>
@@ -128,7 +153,8 @@ export default function Lightbox({
             className={`btn btn-maybe${photo.state === "maybe" ? " active" : ""}`}
             onClick={() => onDecide(photo.state === "maybe" ? "undo" : "maybe")}
             aria-pressed={photo.state === "maybe"}
-            title={`${photo.state === "maybe" ? t("remove_maybe") : t("mark_maybe")} (M)`}
+            aria-label={maybeTip}
+            data-tip={`${maybeTip} (M)`}
           >
             {t("btn_maybe")}
             <kbd className="btn-kbd">m</kbd>
@@ -137,7 +163,8 @@ export default function Lightbox({
             className={`btn btn-del${photo.state === "delete" ? " active" : ""}`}
             onClick={() => onDecide(photo.state === "delete" ? "undo" : "delete")}
             aria-pressed={photo.state === "delete"}
-            title={`${photo.state === "delete" ? t("remove_trash") : t("mark_trash")} (X)`}
+            aria-label={trashTip}
+            data-tip={`${trashTip} (X)`}
           >
             {t("btn_trash")}
             <kbd className="btn-kbd">x</kbd>
@@ -146,7 +173,8 @@ export default function Lightbox({
             className="btn btn-ghost"
             onClick={() => onDecide("undo")}
             disabled={photo.state === "none"}
-            title={`${t("clear_label")} (U)`}
+            aria-label={t("clear_label")}
+            data-tip={`${t("clear_label")} (U)`}
           >
             {t("btn_undo")}
             <kbd className="btn-kbd">u</kbd>

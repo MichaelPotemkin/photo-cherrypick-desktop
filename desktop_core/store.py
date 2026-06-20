@@ -330,6 +330,18 @@ class CullStore:
                 accepted += 1
         return accepted
 
+    def count_pending_suggestions(self, sid: str) -> int:
+        """How many suggested (best-of-burst) picks are still undecided — exactly what
+        accept_suggestions() would favorite. Authoritative count for the 'Accept picks' button (so it
+        doesn't depend on the current view's scene-vs-burst suggested flags)."""
+        states = self.current_states(sid)
+        rows = self._conn.execute(
+            "SELECT a.photo_id FROM analyses a JOIN photos p ON a.photo_id=p.id "
+            "WHERE p.session_id=? AND a.suggested=1",
+            (sid,),
+        ).fetchall()
+        return sum(1 for r in rows if states.get(r["photo_id"], "none") == "none")
+
     def current_states(self, sid: str) -> dict[str, str]:
         rows = self._conn.execute(
             "SELECT photo_id, action FROM decisions WHERE id IN "

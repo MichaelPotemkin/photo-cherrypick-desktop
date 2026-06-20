@@ -12,6 +12,35 @@ from tests.conftest import write_jpeg, write_png
 def test_extension_classification():
     assert rp.is_raw(Path("a.CR3")) and rp.is_raw(Path("b.nef")) and rp.is_raw(Path("c.arw"))
     assert not rp.is_raw(Path("d.jpg"))
+
+
+class _FakeExif(dict):
+    """Minimal stand-in for a PIL Exif object: dict-like base IFD + a separate ExifIFD."""
+    def get_ifd(self, _tag):
+        return getattr(self, "sub", {})
+
+
+def test_capture_time_prefers_original_then_falls_back_to_base_datetime():
+    import datetime
+
+    from pipeline.embed import capture_time
+
+    want = datetime.datetime(2023, 8, 20, 18, 9, 12).timestamp()
+
+    # RAW embedded preview: only the base-IFD DateTime (0x0132) is present, no DateTimeOriginal
+    base_only = _FakeExif({0x0132: "2023:08:20 18:09:12"})
+    base_only.sub = {}
+    assert capture_time(base_only) == want
+
+    # DateTimeOriginal (in the ExifIFD) takes precedence over the base DateTime
+    with_original = _FakeExif({0x0132: "2000:01:01 00:00:00"})
+    with_original.sub = {0x9003: "2023:08:20 18:09:12"}
+    assert capture_time(with_original) == want
+
+    # nothing usable -> None
+    empty = _FakeExif({})
+    empty.sub = {}
+    assert capture_time(empty) is None
     assert rp.is_image(Path("d.jpg")) and rp.is_image(Path("e.PNG")) and rp.is_image(Path("f.dng"))
     assert not rp.is_image(Path("notes.txt"))
 

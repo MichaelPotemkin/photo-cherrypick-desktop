@@ -4,6 +4,7 @@ Exercises: create-from-folder -> ready -> groups -> decision -> counts -> image 
 export (zip + csv) -> rename -> delete. Runs synchronously (CULL_SYNC) with faked models.
 """
 import os
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -89,6 +90,15 @@ def test_full_flow(client, src_folder):
 def test_export_nothing_is_400(client, src_folder):
     sid = client.post("/api/sessions", json={"path": src_folder}).json()["id"]
     assert client.get(f"/api/sessions/{sid}/export?format=zip").status_code == 400  # no picks
+
+
+def test_spa_deep_link_falls_back_and_api_404_stays_json(client):
+    import server.app as appmod
+    spa = Path(appmod.__file__).resolve().parent.parent / "frontend" / "dist"
+    if (spa / "index.html").exists():   # only meaningful once the SPA is built
+        r = client.get("/session/abc123")           # a client-side route, refreshed
+        assert r.status_code == 200 and "text/html" in r.headers["content-type"]
+    assert client.get("/api/definitely-not-a-route").status_code == 404   # API 404s stay JSON
 
 
 def test_accept_suggestions_endpoint(client, src_folder):
