@@ -1,0 +1,157 @@
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createSession, deleteSession, listSessions } from "../api";
+import type { SessionListItem } from "../api";
+import { useI18n } from "../i18n";
+import { inTauri, pickFolder } from "../lib/tauri";
+import LangToggle from "./LangToggle";
+
+interface Props {
+  onOpen: (id: string) => void;
+}
+
+function relTime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function folderName(path: string): string {
+  const parts = path.replace(/\/+$/, "").split("/");
+  return parts[parts.length - 1] || path;
+}
+
+export default function SessionInput({ onOpen }: Props) {
+  const { t } = useI18n();
+  const [path, setPath] = useState("");
+
+  function statusLabel(s: SessionListItem): string {
+    if (s.status === "processing")
+      return t("status_analyzing", { done: s.n_done, total: s.n_total });
+    if (s.status === "pending") return t("status_queued");
+    if (s.status === "error") return t("status_error");
+    return t("status_kept_maybe", { fav: s.counts.favorite, maybe: s.counts.maybe });
+  }
+
+  const mutation = useMutation({
+    mutationFn: (p: string) => createSession(p),
+    onSuccess: (data) => onOpen(data.id),
+  });
+
+  const queryClient = useQueryClient();
+  const sessions = useQuery({
+    queryKey: ["sessions"],
+    queryFn: listSessions,
+    refetchInterval: 4000, // keep processing statuses fresh
+  });
+
+  const delMutation = useMutation({
+    mutationFn: (id: string) => deleteSession(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions"] }),
+  });
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = path.trim();
+    if (!trimmed || mutation.isPending) return;
+    mutation.mutate(trimmed);
+  }
+
+  async function choose() {
+    const picked = await pickFolder();
+    if (picked) {
+      setPath(picked);
+      mutation.mutate(picked); // native dialog → analyze immediately
+    }
+  }
+
+  const items = sessions.data ?? [];
+
+  return (
+    <div className="input-screen">
+      <div className="input-card">
+        <div className="input-card-top">
+          <h1>{t("app_title")}</h1>
+          <LangToggle />
+        </div>
+        <p className="muted">{t("home_tagline")}</p>
+        <form onSubmit={submit}>
+          <input
+            type="text"
+            className="url-input"
+            placeholder="/Users/you/Shoots/2026-06-14"
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            autoFocus
+          />
+          <div className="folder-actions">
+            {inTauri() && (
+              <button type="button" className="btn" onClick={choose} disabled={mutation.isPending}>
+                {t("choose_folder")}
+              </button>
+            )}
+            <button
+              type="submit"
+              className="btn btn-accent"
+              disabled={mutation.isPending || !path.trim()}
+            >
+              {mutation.isPending ? t("analyzing") : t("analyze_folder")}
+            </button>
+          </div>
+        </form>
+        {mutation.isError && (
+          <p className="error">
+            {(mutation.error as Error)?.message ?? t("failed_create")}
+          </p>
+        )}
+
+        {items.length > 0 && (
+          <div className="session-list">
+            <div className="muted small session-list-head">{t("recent_sessions")}</div>
+            {items.map((s) => (
+              <div key={s.id} className={`session-row status-${s.status}`}>
+                <button
+                  className="session-row-open"
+                  onClick={() => onOpen(s.id)}
+                  title={s.source_url}
+                >
+                  <span className="session-row-main">
+                    <span className="session-row-title">
+                      {s.title || folderName(s.source_url)}
+                    </span>
+                    <span className="muted small">
+                      {t("n_photos", { n: s.n_total })} · {statusLabel(s)}
+                    </span>
+                  </span>
+                  <span className="muted small session-row-when">
+                    {relTime(s.created_at)}
+                  </span>
+                </button>
+                <button
+                  className="session-row-del"
+                  title={t("delete_session")}
+                  aria-label={t("delete_session")}
+                  disabled={delMutation.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        t("delete_confirm", { name: s.title || folderName(s.source_url) }),
+                      )
+                    ) {
+                      delMutation.mutate(s.id);
+                    }
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

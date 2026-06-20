@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.db
+*.sqlite
+.venv/
+venv/
+.DS_Store
+# local app data / caches
+.photo-cherrypick-desktop/
+cache/
+# frontend
+frontend/node_modules/
+frontend/dist/
+# local env (copy frontend/.env.example -> .env); .env.example stays tracked
+.env
+.env.local
+*.env.local
+# tauri
+desktop/src-tauri/target/
+# model weights — auto-downloaded on first run by pipeline/models.py
+pipeline/weights/
+# local editor / tool config
+.claude/

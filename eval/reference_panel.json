@@ -1,0 +1,416 @@
+{
+ "0": {
+  "pick": "068A1688.jpg",
+  "votes": {
+   "technical": "068A1690.jpg",
+   "expression": "068A1688.jpg",
+   "deliverable": "068A1688.jpg"
+  },
+  "consensus": "majority"
+ },
+ "1": {
+  "pick": "068A1505.jpg",
+  "votes": {
+   "technical": "068A1505.jpg",
+   "expression": "068A1505.jpg",
+   "deliverable": "068A1505.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "2": {
+  "pick": "068A1591p.jpg",
+  "votes": {
+   "technical": "068A1591p.jpg",
+   "expression": "068A1592.jpg",
+   "deliverable": "068A1591p.jpg"
+  },
+  "consensus": "majority"
+ },
+ "3": {
+  "pick": "068A1717.jpg",
+  "votes": {
+   "technical": "068A1718.jpg",
+   "expression": "068A1717.jpg",
+   "deliverable": "068A1717.jpg"
+  },
+  "consensus": "majority"
+ },
+ "7": {
+  "pick": "3E4A8774.jpg",
+  "votes": {
+   "technical": "3E4A8770.jpg",
+   "expression": "3E4A8774.jpg",
+   "deliverable": "3E4A8774.jpg"
+  },
+  "consensus": "majority"
+ },
+ "12": {
+  "pick": "3E4A8900.jpg",
+  "votes": {
+   "technical": "3E4A8903.jpg",
+   "expression": "3E4A8900.jpg",
+   "deliverable": "3E4A8900.jpg"
+  },
+  "consensus": "majority"
+ },
+ "15": {
+  "pick": "3E4A9153.jpg",
+  "votes": {
+   "technical": "3E4A9153.jpg",
+   "expression": "3E4A9150.jpg",
+   "deliverable": "3E4A9153.jpg"
+  },
+  "consensus": "majority"
+ },
+ "18": {
+  "pick": "068A1685.jpg",
+  "votes": {
+   "technical": "068A1676.jpg",
+   "expression": "068A1685.jpg",
+   "deliverable": "068A1685.jpg"
+  },
+  "consensus": "majority"
+ },
+ "28": {
+  "pick": "3E4A8746.jpg",
+  "votes": {
+   "technical": "3E4A8746.jpg",
+   "expression": "3E4A8746.jpg",
+   "deliverable": "3E4A8746.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "30": {
+  "pick": "068A1034.jpg",
+  "votes": {
+   "technical": "068A1034.jpg",
+   "expression": "068A1035.jpg",
+   "deliverable": "068A1034.jpg"
+  },
+  "consensus": "majority"
+ },
+ "34": {
+  "pick": "068A1218.jpg",
+  "votes": {
+   "technical": "068A1218.jpg",
+   "expression": "068A1218.jpg",
+   "deliverable": "068A1218.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "35": {
+  "pick": "3E4A8904.jpg",
+  "votes": {
+   "technical": "3E4A8904.jpg",
+   "expression": "3E4A8904.jpg",
+   "deliverable": "3E4A8904.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "38": {
+  "pick": "3E4A9173.jpg",
+  "votes": {
+   "technical": "3E4A9173.jpg",
+   "expression": "3E4A9173.jpg",
+   "deliverable": "3E4A9173.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "39": {
+  "pick": "068A1245.jpg",
+  "votes": {
+   "technical": "068A1245.jpg",
+   "expression": "068A1245.jpg",
+   "deliverable": "068A1246.jpg"
+  },
+  "consensus": "majority"
+ },
+ "42": {
+  "pick": "068A1198.jpg",
+  "votes": {
+   "technical": "068A1198.jpg",
+   "expression": "068A1198.jpg",
+   "deliverable": "068A1198.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "47": {
+  "pick": "068A1250.jpg",
+  "votes": {
+   "technical": "068A1250.jpg",
+   "expression": "068A1249.jpg",
+   "deliverable": "068A1250.jpg"
+  },
+  "consensus": "majority"
+ },
+ "58": {
+  "pick": "068A1207.jpg",
+  "votes": {
+   "technical": "068A1207.jpg",
+   "expression": "068A1207.jpg",
+   "deliverable": "068A1207.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "65": {
+  "pick": "3E4A9432.jpg",
+  "votes": {
+   "technical": "3E4A9432.jpg",
+   "expression": "3E4A9432.jpg",
+   "deliverable": "3E4A9432.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "72": {
+  "pick": "3E4A9283.jpg",
+  "votes": {
+   "technical": "3E4A9283.jpg",
+   "expression": "3E4A9283.jpg",
+   "deliverable": "3E4A9283.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "74": {
+  "pick": "3E4A8779.jpg",
+  "votes": {
+   "technical": "3E4A8779.jpg",
+   "expression": "3E4A8779.jpg",
+   "deliverable": "3E4A8779.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "83": {
+  "pick": "068A1042.jpg",
+  "votes": {
+   "technical": "068A1039.jpg",
+   "expression": "068A1042.jpg",
+   "deliverable": "068A1042.jpg"
+  },
+  "consensus": "majority"
+ },
+ "84": {
+  "pick": "068A1237.jpg",
+  "votes": {
+   "technical": "068A1237.jpg",
+   "expression": "068A1237.jpg",
+   "deliverable": "068A1237.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "91": {
+  "pick": "068A1239.jpg",
+  "votes": {
+   "technical": "068A1239.jpg",
+   "expression": "068A1239.jpg",
+   "deliverable": "068A1239.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "96": {
+  "pick": "3E4A8875.jpg",
+  "votes": {
+   "technical": "3E4A8875.jpg",
+   "expression": "3E4A8875.jpg",
+   "deliverable": "3E4A8875.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "97": {
+  "pick": "068A1186.jpg",
+  "votes": {
+   "technical": "068A1184.jpg",
+   "expression": "068A1186.jpg",
+   "deliverable": "068A1186.jpg"
+  },
+  "consensus": "majority"
+ },
+ "105": {
+  "pick": "068A1213.jpg",
+  "votes": {
+   "technical": "068A1213.jpg",
+   "expression": "068A1213.jpg",
+   "deliverable": "068A1213.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "107": {
+  "pick": "068A1621.jpg",
+  "votes": {
+   "technical": "068A1621.jpg",
+   "expression": "068A1621.jpg",
+   "deliverable": "068A1621.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "108": {
+  "pick": "3E4A8829.jpg",
+  "votes": {
+   "technical": "3E4A8829.jpg",
+   "expression": "3E4A8829.jpg",
+   "deliverable": "3E4A8827.jpg"
+  },
+  "consensus": "majority"
+ },
+ "115": {
+  "pick": "068A1014.jpg",
+  "votes": {
+   "technical": "068A1016.jpg",
+   "expression": "068A1014.jpg",
+   "deliverable": "068A1014.jpg"
+  },
+  "consensus": "majority"
+ },
+ "140": {
+  "pick": "068A1066.jpg",
+  "votes": {
+   "technical": "068A1066.jpg",
+   "expression": "068A1066.jpg",
+   "deliverable": "068A1066.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "141": {
+  "pick": "068A1456.jpg",
+  "votes": {
+   "technical": "068A1456.jpg",
+   "expression": "068A1456.jpg",
+   "deliverable": "068A1456.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "144": {
+  "pick": "3E4A9117.jpg",
+  "votes": {
+   "technical": "3E4A9117.jpg",
+   "expression": "3E4A9117.jpg",
+   "deliverable": "3E4A9117.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "149": {
+  "pick": "068A1114.jpg",
+  "votes": {
+   "technical": "068A1114.jpg",
+   "expression": "068A1114.jpg",
+   "deliverable": "068A1114.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "152": {
+  "pick": "3E4A9010.jpg",
+  "votes": {
+   "technical": "3E4A9010.jpg",
+   "expression": "3E4A9010.jpg",
+   "deliverable": "3E4A9009.jpg"
+  },
+  "consensus": "majority"
+ },
+ "153": {
+  "pick": "3E4A9103.jpg",
+  "votes": {
+   "technical": "3E4A9103.jpg",
+   "expression": "3E4A9102.jpg",
+   "deliverable": "3E4A9103.jpg"
+  },
+  "consensus": "majority"
+ },
+ "157": {
+  "pick": "3E4A8806.jpg",
+  "votes": {
+   "technical": "3E4A8803.jpg",
+   "expression": "3E4A8806.jpg",
+   "deliverable": "3E4A8806.jpg"
+  },
+  "consensus": "majority"
+ },
+ "168": {
+  "pick": "068A1053.jpg",
+  "votes": {
+   "technical": "068A1053.jpg",
+   "expression": "068A1053.jpg",
+   "deliverable": "068A1053.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "169": {
+  "pick": "068A0901.jpg",
+  "votes": {
+   "technical": "068A0898.jpg",
+   "expression": "068A0901.jpg",
+   "deliverable": "068A0901.jpg"
+  },
+  "consensus": "majority"
+ },
+ "170": {
+  "pick": "3E4A8893.jpg",
+  "votes": {
+   "technical": "3E4A8893.jpg",
+   "expression": "3E4A8893.jpg",
+   "deliverable": "3E4A8893.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "192": {
+  "pick": "3E4A9128.jpg",
+  "votes": {
+   "technical": "3E4A9128.jpg",
+   "expression": "3E4A9128.jpg",
+   "deliverable": "3E4A9129.jpg"
+  },
+  "consensus": "majority"
+ },
+ "196": {
+  "pick": "068A0944.jpg",
+  "votes": {
+   "technical": "068A0944.jpg",
+   "expression": "068A0944.jpg",
+   "deliverable": "068A0944.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "204": {
+  "pick": "3E4A9137.jpg",
+  "votes": {
+   "technical": "3E4A9137.jpg",
+   "expression": "3E4A9137.jpg",
+   "deliverable": "3E4A9137.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "211": {
+  "pick": "3E4A9252.jpg",
+  "votes": {
+   "technical": "3E4A9252.jpg",
+   "expression": "3E4A9252.jpg",
+   "deliverable": "3E4A9252.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "217": {
+  "pick": "3E4A9016.jpg",
+  "votes": {
+   "technical": "3E4A9016.jpg",
+   "expression": "3E4A9017.jpg",
+   "deliverable": "3E4A9016.jpg"
+  },
+  "consensus": "majority"
+ },
+ "221": {
+  "pick": "068A1400.jpg",
+  "votes": {
+   "technical": "068A1400.jpg",
+   "expression": "068A1400.jpg",
+   "deliverable": "068A1400.jpg"
+  },
+  "consensus": "unanimous"
+ },
+ "238": {
+  "pick": "3E4A9035.jpg",
+  "votes": {
+   "technical": "3E4A9035.jpg",
+   "expression": "3E4A9035.jpg",
+   "deliverable": "3E4A9035.jpg"
+  },
+  "consensus": "unanimous"
+ }
+}
