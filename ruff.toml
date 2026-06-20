@@ -1,0 +1,7 @@
+# Lint config for the Python backend (pipeline / server / desktop_core / tests).
+# Default rule set (pyflakes `F` + a subset of pycodestyle `E`) is the PR gate — enough to catch
+# unused imports, undefined names, and obvious mistakes without bikeshedding style.
+line-length = 100
+
+# `eval/` is an exploratory scoring-evaluation harness (terse, notebook-style); not shipped code.
+extend-exclude = ["eval"]

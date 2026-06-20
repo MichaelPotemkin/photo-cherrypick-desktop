@@ -166,10 +166,12 @@ fn main() {
             dequarantine_sidecar();
 
             // 1. spawn the packaged local server (single-user, binds to loopback only)
-            let sidecar = app
-                .shell()
-                .sidecar("cull-server")?
-                .args(["--host", "127.0.0.1", "--port", &PORT.to_string()]);
+            let sidecar = app.shell().sidecar("cull-server")?.args([
+                "--host",
+                "127.0.0.1",
+                "--port",
+                &PORT.to_string(),
+            ]);
             let (mut rx, _child) = sidecar.spawn()?;
             tauri::async_runtime::spawn(async move {
                 while let Some(event) = rx.recv().await {
@@ -184,8 +186,7 @@ fn main() {
             //    staged update now. restart() relaunches into the freshly-installed bundle.
             #[cfg(desktop)]
             {
-                let update_cache: UpdateCache =
-                    std::sync::Arc::new(std::sync::Mutex::new(None));
+                let update_cache: UpdateCache = std::sync::Arc::new(std::sync::Mutex::new(None));
                 spawn_update_check(app.handle().clone(), update_cache.clone());
 
                 // The SPA emits `spa-ready` once its listeners are registered; replay the latest
