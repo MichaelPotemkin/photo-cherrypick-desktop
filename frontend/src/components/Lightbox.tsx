@@ -197,7 +197,7 @@ export default function Lightbox({
               title={p.filename}
             >
               <img src={p.preview_url} alt={p.filename} loading="lazy" />
-              {p.suggested && <span className="film-badge">★</span>}
+              {p.suggested && <span className="film-badge">✨</span>}
             </button>
           ))}
         </div>

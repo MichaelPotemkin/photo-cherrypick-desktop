@@ -213,10 +213,16 @@ body {
   margin: 0 0 6px;
   font-size: 24px;
 }
-.input-card form {
+.folder-form {
   display: flex;
+  flex-direction: column;
   gap: 10px;
   margin-top: 18px;
+}
+.folder-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;   /* the Browse button matches the input's height */
 }
 .url-input {
   flex: 1;
@@ -231,19 +237,29 @@ body {
   outline: none;
   border-color: var(--accent);
 }
-.folder-actions {
+.browse-btn {
+  white-space: nowrap;
+}
+/* primary action: full width and the same vertical size as the input, so it's never shorter (#19) */
+.analyze-btn {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.input-top-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
-  margin-top: 10px;
 }
 
 /* ------------------------------------------------------------- progress */
 .progress-screen {
   display: flex;
-  align-items: center;
+  align-items: flex-start;   /* the embedded how-to guide makes this tall — anchor + scroll */
   justify-content: center;
   min-height: 100vh;
-  padding: 24px;
+  padding: 48px 24px;
+  overflow-y: auto;
 }
 .progress-card {
   width: 100%;
@@ -265,6 +281,97 @@ body {
   height: 100%;
   background: var(--accent);
   transition: width 0.4s ease;
+}
+
+/* ----------------------------------------------------------- how-to guide */
+.help-btn {
+  white-space: nowrap;
+}
+/* inline guide on the loading screen */
+.progress-help {
+  margin-top: 26px;
+  text-align: left;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.help-loading-hint {
+  margin: 0 0 12px;
+}
+/* dismissible modal */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 120;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow: auto;
+}
+.help-modal {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 28px 24px;
+}
+.help-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+}
+.help-modal-title {
+  margin: 0 0 14px;
+  font-size: 20px;
+}
+/* shared content (modal + loading screen) */
+.help-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.help-intro {
+  margin: 0;
+}
+.help-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.help-step {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+}
+.help-step-title {
+  font-weight: 600;
+}
+.help-step-body {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.help-download {
+  margin: 0;
+  font-size: 13px;
+}
+.help-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* -------------------------------------------------------- counts header */

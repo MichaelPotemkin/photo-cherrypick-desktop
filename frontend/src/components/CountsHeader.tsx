@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Counts, ViewMode } from "../api";
 import { useI18n } from "../i18n";
+import HelpButton from "./HelpGuide";
 import LangToggle from "./LangToggle";
 
 interface Props {
@@ -116,6 +117,7 @@ export default function CountsHeader({
         </div>
 
         <div className="header-actions">
+          <HelpButton />
           <LangToggle />
           <div className="mode-toggle" role="group" aria-label={t("aria_grouping_mode")}>
             <button

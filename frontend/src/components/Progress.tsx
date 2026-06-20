@@ -1,5 +1,6 @@
 import type { SessionDetail, SessionStatus } from "../api";
 import { useI18n } from "../i18n";
+import { HelpContent } from "./HelpGuide";
 
 interface Props {
   session: SessionDetail;
@@ -28,6 +29,11 @@ export default function Progress({ session }: Props) {
           <div className="progressbar-fill" style={{ width: `${pct}%` }} />
         </div>
         <p className="muted">{t("photos_pct", { done: n_done, total: n_total, pct })}</p>
+
+        <div className="progress-help">
+          <p className="muted small help-loading-hint">{t("help_loading_hint")}</p>
+          <HelpContent />
+        </div>
       </div>
     </div>
   );
