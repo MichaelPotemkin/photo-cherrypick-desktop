@@ -94,6 +94,12 @@ const en: Dict = {
   download_disabled_title: "Mark some photos favorite or maybe first",
   download_title: "Download your picks (favorites + maybe) as a ZIP of the original files",
 
+  // --- in-app updater (bottom of screen) ---
+  version_label: "version {v}",
+  update_downloading: "Downloading update",
+  update_ready: "Update ready",
+  update_relaunch_tip: "Restart now to finish updating",
+
   // --- groups ---
   group: "Group",
   label_burst_pick: "{n} in burst — pick one",
@@ -280,6 +286,12 @@ const uk: Dict = {
   download_disabled_title: "Спершу позначте кілька фото як обране або під питанням",
   download_title: "Завантажити ваше обране (обране + під питанням) як ZIP з оригіналами",
 
+  // --- in-app updater (bottom of screen) ---
+  version_label: "версія {v}",
+  update_downloading: "Завантаження оновлення",
+  update_ready: "Оновлення готове",
+  update_relaunch_tip: "Перезапустити, щоб завершити оновлення",
+
   group: "Група",
   label_burst_pick: "{n} у серії — оберіть один кадр",
   label_single: "одиночний кадр",
@@ -456,6 +468,12 @@ const ru: Dict = {
   download_picks: "⬇ Скачать выбранное",
   download_disabled_title: "Сначала отметьте несколько фото как выбранное или под вопросом",
   download_title: "Скачать ваш выбор (выбранное + под вопросом) как ZIP с оригиналами",
+
+  // --- in-app updater (bottom of screen) ---
+  version_label: "версия {v}",
+  update_downloading: "Загрузка обновления",
+  update_ready: "Обновление готово",
+  update_relaunch_tip: "Перезапустить, чтобы завершить обновление",
 
   group: "Группа",
   label_burst_pick: "{n} в серии — выберите один кадр",
