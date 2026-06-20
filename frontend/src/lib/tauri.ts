@@ -4,8 +4,20 @@
 interface TauriDialog {
   open?: (opts: { directory?: boolean; multiple?: boolean }) => Promise<string | string[] | null>;
 }
+interface TauriEvent {
+  listen?: <T>(
+    event: string,
+    handler: (e: { payload: T }) => void,
+  ) => Promise<() => void>;
+  emit?: (event: string, payload?: unknown) => Promise<void>;
+}
+interface TauriApp {
+  getVersion?: () => Promise<string>;
+}
 interface TauriGlobal {
   dialog?: TauriDialog;
+  event?: TauriEvent;
+  app?: TauriApp;
 }
 
 function tauri(): TauriGlobal | undefined {
@@ -14,6 +26,43 @@ function tauri(): TauriGlobal | undefined {
 
 export function inTauri(): boolean {
   return tauri() !== undefined;
+}
+
+// The running app's version (from tauri.conf.json), or null outside the packaged app.
+export async function getAppVersion(): Promise<string | null> {
+  const t = tauri();
+  if (!t?.app?.getVersion) return null;
+  try {
+    return await t.app.getVersion();
+  } catch {
+    return null;
+  }
+}
+
+// Subscribe to a Tauri event from the SPA. Returns an unlisten fn (a no-op outside Tauri / on error),
+// so callers can always call it in cleanup.
+export async function listenEvent<T>(
+  name: string,
+  cb: (payload: T) => void,
+): Promise<() => void> {
+  const t = tauri();
+  if (!t?.event?.listen) return () => {};
+  try {
+    return await t.event.listen<T>(name, (e) => cb(e.payload));
+  } catch {
+    return () => {};
+  }
+}
+
+// Emit a Tauri event from the SPA (e.g. asking the Rust shell to relaunch). No-op outside Tauri.
+export async function emitEvent(name: string, payload?: unknown): Promise<void> {
+  const t = tauri();
+  if (!t?.event?.emit) return;
+  try {
+    await t.event.emit(name, payload);
+  } catch {
+    // ignore
+  }
 }
 
 export async function pickFolder(): Promise<string | null> {

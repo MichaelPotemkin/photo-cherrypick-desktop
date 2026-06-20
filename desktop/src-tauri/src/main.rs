@@ -15,7 +15,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Listener, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 #[cfg(desktop)]
@@ -56,39 +56,38 @@ fn wait_for_server(port: u16) {
     eprintln!("[shell] sidecar not ready after ~90s; opening the window anyway");
 }
 
-// Notify-only update prompt. The new version has already been downloaded + staged in the background;
-// this just lets the user apply it now or keep working (it applies on next launch either way). Uses
-// the callback dialog form so it's safe to call from the background updater task (Tauri marshals the
-// dialog to the main thread). On macOS the replaced bundle inherits the running app's ad-hoc
-// signature, so the in-place swap works without an Apple Developer ID.
+// Latest update event, cached so a freshly-loaded SPA can be replayed the current state on its
+// `spa-ready` signal. Emits to a not-yet-subscribed webview are dropped, and on a cold start the
+// whole download can finish before the webview (and the SPA's listeners) even exist.
 #[cfg(desktop)]
-fn prompt_relaunch(handle: tauri::AppHandle, version: String) {
-    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-    let h = handle.clone();
-    handle
-        .dialog()
-        .message(format!(
-            "Photo Cherrypick {version} has been downloaded.\n\nRelaunch now to start using it — \
-             or choose Later and it will apply the next time you open the app."
-        ))
-        .title("Update ready")
-        .kind(MessageDialogKind::Info)
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            "Relaunch now".to_string(),
-            "Later".to_string(),
-        ))
-        .show(move |relaunch| {
-            if relaunch {
-                h.restart();
-            }
-        });
-}
+type UpdateCache = std::sync::Arc<std::sync::Mutex<Option<(String, serde_json::Value)>>>;
 
-// Best-effort update check on startup (background task). Downloads a newer version silently, then
-// NOTIFIES the user it's ready (notify-only) instead of forcing it — the ~200 MB bundle shouldn't
-// vanish into the background unseen.
+// Best-effort update check on startup (background task). Downloads a newer version silently while
+// reporting progress to the SPA, which renders the whole update UI in-app (version label → progress
+// bar → "Update ready" button) instead of a native OS dialog. The update applies on the next launch
+// either way; the in-app button just lets the user relaunch now via the `update-relaunch` event
+// (see the listener in `main`). On macOS the replaced bundle inherits the running app's ad-hoc
+// signature, so the in-place swap works without an Apple Developer ID.
+//
+// IPC is event-only on purpose: the SPA is served from the remote 127.0.0.1 origin, where core
+// events (`core:default`) are permitted — the same constraint that makes the folder dialog work.
 #[cfg(desktop)]
-fn spawn_update_check(handle: tauri::AppHandle) {
+fn spawn_update_check(handle: tauri::AppHandle, cache: UpdateCache) {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
+
+    // Emit an update event to the SPA AND remember it as the latest state, so a SPA that subscribes
+    // late (cold start) gets the current state replayed on `spa-ready` instead of missing it.
+    fn emit_state(
+        handle: &tauri::AppHandle,
+        cache: &UpdateCache,
+        name: &str,
+        payload: serde_json::Value,
+    ) {
+        *cache.lock().unwrap() = Some((name.to_string(), payload.clone()));
+        let _ = handle.emit(name, payload);
+    }
+
     tauri::async_runtime::spawn(async move {
         let updater = match handle.updater() {
             Ok(u) => u,
@@ -101,12 +100,53 @@ fn spawn_update_check(handle: tauri::AppHandle) {
             Ok(Some(update)) => {
                 let version = update.version.clone();
                 eprintln!("[updater] update {version} available, downloading in background");
-                match update.download_and_install(|_, _| {}, || {}).await {
+                emit_state(
+                    &handle,
+                    &cache,
+                    "update-available",
+                    serde_json::json!({ "version": version }),
+                );
+
+                let downloaded = Arc::new(AtomicU64::new(0));
+                let progress_handle = handle.clone();
+                let progress_cache = cache.clone();
+                let progress_total = downloaded.clone();
+                let result = update
+                    .download_and_install(
+                        move |chunk_len, content_len| {
+                            let total = progress_total
+                                .fetch_add(chunk_len as u64, Ordering::Relaxed)
+                                + chunk_len as u64;
+                            emit_state(
+                                &progress_handle,
+                                &progress_cache,
+                                "update-progress",
+                                serde_json::json!({ "downloaded": total, "total": content_len }),
+                            );
+                        },
+                        || {},
+                    )
+                    .await;
+
+                match result {
                     Ok(_) => {
-                        eprintln!("[updater] {version} downloaded; prompting to relaunch");
-                        prompt_relaunch(handle.clone(), version);
+                        eprintln!("[updater] {version} downloaded; ready to relaunch");
+                        emit_state(
+                            &handle,
+                            &cache,
+                            "update-ready",
+                            serde_json::json!({ "version": version }),
+                        );
                     }
-                    Err(e) => eprintln!("[updater] install failed: {e}"),
+                    Err(e) => {
+                        eprintln!("[updater] install failed: {e}");
+                        emit_state(
+                            &handle,
+                            &cache,
+                            "update-error",
+                            serde_json::json!({ "message": e.to_string() }),
+                        );
+                    }
                 }
             }
             Ok(None) => eprintln!("[updater] up to date"),
@@ -139,9 +179,31 @@ fn main() {
                 }
             });
 
-            // 2. fire-and-forget auto-update check (no-op off-desktop / on any error)
+            // 2. fire-and-forget auto-update check (no-op off-desktop / on any error), and listen for
+            //    the SPA's in-app "Update ready" button (the `update-relaunch` event) to apply a
+            //    staged update now. restart() relaunches into the freshly-installed bundle.
             #[cfg(desktop)]
-            spawn_update_check(app.handle().clone());
+            {
+                let update_cache: UpdateCache =
+                    std::sync::Arc::new(std::sync::Mutex::new(None));
+                spawn_update_check(app.handle().clone(), update_cache.clone());
+
+                // The SPA emits `spa-ready` once its listeners are registered; replay the latest
+                // update state to it so a download that finished before the webview existed still
+                // surfaces the in-app progress / "Update ready" button this session.
+                let replay_handle = app.handle().clone();
+                let replay_cache = update_cache.clone();
+                app.handle().listen_any("spa-ready", move |_event| {
+                    if let Some((name, payload)) = replay_cache.lock().unwrap().clone() {
+                        let _ = replay_handle.emit(name.as_str(), payload);
+                    }
+                });
+
+                let relaunch_handle = app.handle().clone();
+                app.handle().listen_any("update-relaunch", move |_event| {
+                    relaunch_handle.restart();
+                });
+            }
 
             // 3. wait for the sidecar, then open the window onto it (it serves the SPA + API)
             wait_for_server(PORT);

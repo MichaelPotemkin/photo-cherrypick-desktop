@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import SessionInput from "./components/SessionInput";
 import SessionView from "./components/SessionView";
+import UpdateFooter from "./components/UpdateFooter";
 import { parseSessionId } from "./lib/routing";
 
 // Clean-URL routing via the History API: "/" is the input screen, "/session/<id>" a
@@ -39,6 +40,7 @@ export default function App() {
       ) : (
         <SessionView sessionId={sessionId} onHome={goHome} />
       )}
+      <UpdateFooter />
     </div>
   );
 }
