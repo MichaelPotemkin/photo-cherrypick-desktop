@@ -1,10 +1,11 @@
 import { useI18n, type Lang } from "../i18n";
 
-// Two-segment EN / УК language switch (persisted in localStorage by the i18n provider).
+// EN / УК / РУ language switch (persisted in localStorage by the i18n provider).
 // `name` is the endonym shown in the hover tooltip (kept in its own language by convention).
 const LANGS: { code: Lang; label: string; name: string }[] = [
   { code: "en", label: "EN", name: "English" },
   { code: "uk", label: "УК", name: "Українська" },
+  { code: "ru", label: "РУ", name: "Русский" },
 ];
 
 export default function LangToggle() {
