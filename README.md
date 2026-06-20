@@ -14,26 +14,19 @@ M1/M2/M3/M4 Macs. It will **not** run on Intel Macs.
 - **Also on GitHub Releases:** **https://github.com/MichaelPotemkin/photo-cherrypick-desktop/releases/latest**
   (the `.dmg` is attached to each release; GitHub Releases is also the source for in-app updates).
 
-### First launch: bypassing Gatekeeper (required, one time)
+### First launch: approve it once (no Terminal)
 
-The app is **not signed with an Apple Developer ID and is not notarized**, so macOS Gatekeeper
-blocks it on first launch ("Photo Cherrypick is damaged / cannot be opened / from an unidentified
-developer"). This is expected for an unsigned app — do one of the following **once**:
+The app is **not signed with an Apple Developer ID**, so the **first** time you open it macOS asks
+you to confirm — expected for an unsigned app. You approve it **once**, with no Terminal commands:
 
-**Option A — right-click → Open (no Terminal):**
-1. In **Applications**, right-click (or Control-click) **Photo Cherrypick**.
-2. Choose **Open**, then click **Open** again in the dialog.
-3. macOS remembers the choice; afterwards launch it normally.
+- **Right-click** (or Control-click) **Photo Cherrypick** in Applications → **Open** → **Open**, **or**
+- if macOS only offers a **"Done"** button (macOS 15 Sequoia and later): open
+  **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to Photo
+  Cherrypick, then open it again.
 
-**Option B — clear the quarantine flag (Terminal):**
-If right-click → Open still reports the app as "damaged" (common when the `.dmg` was downloaded via
-a browser that sets the quarantine attribute), strip the quarantine flag:
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Photo Cherrypick.app"
-```
-
-Then open the app normally.
+That's it — the app takes care of the rest itself (it clears its own quarantine so the bundled
+engine starts; you don't need any `xattr` command). macOS remembers the approval, so subsequent
+launches are a normal double-click.
 
 ### First launch is slow — and needs internet once
 

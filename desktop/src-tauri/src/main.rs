@@ -23,6 +23,25 @@ use tauri_plugin_updater::UpdaterExt;
 
 const PORT: u16 = 8756;
 
+// A freshly-downloaded unsigned build is quarantined; the nested `cull-server` sidecar inherits
+// com.apple.quarantine and macOS blocks the helper when the app spawns it. The MAIN app has already
+// been approved by the user (that's how we got here), so strip the quarantine flag off the bundled
+// sidecar before launching it — the user never has to touch a terminal. Best-effort: a no-op when
+// the attribute isn't present, and only compiled on macOS.
+#[cfg(target_os = "macos")]
+fn dequarantine_sidecar() {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(sidecar) = exe.parent().map(|d| d.join("cull-server")) {
+            let _ = std::process::Command::new("/usr/bin/xattr")
+                .args(["-d", "com.apple.quarantine"])
+                .arg(&sidecar)
+                .status();
+        }
+    }
+}
+#[cfg(not(target_os = "macos"))]
+fn dequarantine_sidecar() {}
+
 // Block until the sidecar is accepting TCP connections, or give up after ~90s. A frozen onefile
 // re-extracts and imports torch/opencv on first launch (many seconds); opening the webview before
 // the server binds would show a connection-refused / blank page.
@@ -69,6 +88,10 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            // 0. clear the bundled sidecar's quarantine so macOS doesn't block the nested helper
+            //    on a freshly-downloaded unsigned build (no terminal step for the user).
+            dequarantine_sidecar();
+
             // 1. spawn the packaged local server (single-user, binds to loopback only)
             let sidecar = app
                 .shell()
