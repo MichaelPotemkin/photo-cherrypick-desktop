@@ -56,9 +56,37 @@ fn wait_for_server(port: u16) {
     eprintln!("[shell] sidecar not ready after ~90s; opening the window anyway");
 }
 
-// Best-effort, non-blocking update check. Runs once on startup in a background task. On macOS the
-// replaced bundle inherits the (ad-hoc) signature of the running app, so the in-place swap works
-// without an Apple Developer ID.
+// Notify-only update prompt. The new version has already been downloaded + staged in the background;
+// this just lets the user apply it now or keep working (it applies on next launch either way). Uses
+// the callback dialog form so it's safe to call from the background updater task (Tauri marshals the
+// dialog to the main thread). On macOS the replaced bundle inherits the running app's ad-hoc
+// signature, so the in-place swap works without an Apple Developer ID.
+#[cfg(desktop)]
+fn prompt_relaunch(handle: tauri::AppHandle, version: String) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+    let h = handle.clone();
+    handle
+        .dialog()
+        .message(format!(
+            "Photo Cherrypick {version} has been downloaded.\n\nRelaunch now to start using it — \
+             or choose Later and it will apply the next time you open the app."
+        ))
+        .title("Update ready")
+        .kind(MessageDialogKind::Info)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Relaunch now".to_string(),
+            "Later".to_string(),
+        ))
+        .show(move |relaunch| {
+            if relaunch {
+                h.restart();
+            }
+        });
+}
+
+// Best-effort update check on startup (background task). Downloads a newer version silently, then
+// NOTIFIES the user it's ready (notify-only) instead of forcing it — the ~200 MB bundle shouldn't
+// vanish into the background unseen.
 #[cfg(desktop)]
 fn spawn_update_check(handle: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
@@ -71,9 +99,14 @@ fn spawn_update_check(handle: tauri::AppHandle) {
         };
         match updater.check().await {
             Ok(Some(update)) => {
-                eprintln!("[updater] update {} available, installing", update.version);
-                if let Err(e) = update.download_and_install(|_, _| {}, || {}).await {
-                    eprintln!("[updater] install failed: {e}");
+                let version = update.version.clone();
+                eprintln!("[updater] update {version} available, downloading in background");
+                match update.download_and_install(|_, _| {}, || {}).await {
+                    Ok(_) => {
+                        eprintln!("[updater] {version} downloaded; prompting to relaunch");
+                        prompt_relaunch(handle.clone(), version);
+                    }
+                    Err(e) => eprintln!("[updater] install failed: {e}"),
                 }
             }
             Ok(None) => eprintln!("[updater] up to date"),
