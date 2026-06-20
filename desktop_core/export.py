@@ -11,6 +11,7 @@ will plug into.
 from __future__ import annotations
 
 import shutil
+import time
 import zipfile
 from pathlib import Path
 
@@ -18,6 +19,23 @@ from .store import CullStore
 
 # Decision states that get exported; delete/none are skipped.
 _EXPORT_STATES = {"favorite", "maybe"}
+
+
+def _add_to_zip(zf: zipfile.ZipFile, src: Path, arc: str, when_ts: float | None = None) -> None:
+    """Add `src` to the zip as `arc`, timestamped by the photo's CAPTURE time when known.
+
+    The file's filesystem mtime is unreliable (the test RAWs carry a bogus 1979 mtime), so prefer
+    the EXIF capture time (`when_ts`) and fall back to the mtime. The ZIP format cannot encode
+    timestamps before 1980-01-01 — `ZipFile.write()` would raise "ZIP does not support timestamps
+    before 1980" and fail the whole export — so anything earlier is clamped. Streams the file."""
+    ts = when_ts if when_ts else src.stat().st_mtime
+    dt = time.localtime(ts)[:6]
+    if dt[0] < 1980:
+        dt = (1980, 1, 1, 0, 0, 0)
+    info = zipfile.ZipInfo(arc, date_time=dt)
+    info.compress_type = zipfile.ZIP_STORED
+    with src.open("rb") as fsrc, zf.open(info, "w") as fdst:
+        shutil.copyfileobj(fsrc, fdst)
 
 
 def _picks(store: CullStore, sid: str) -> list[dict]:
@@ -85,6 +103,6 @@ def export_to_zip(store: CullStore, sid: str, zip_path: str | Path) -> dict:
                 arc = f"{src.stem}_{n}{src.suffix}"
                 n += 1
             seen.add(arc)
-            zf.write(src, arc)
+            _add_to_zip(zf, src, arc, photo.get("ctime"))
             exported += 1
     return {"zip": str(zip_path), "exported": exported, "missing": missing}

@@ -20,7 +20,7 @@ from pipeline.score import axis_scores, compute_refs
 from pipeline.select import rank_burst
 
 from .ingest import FileItem
-from .raw_preview import load_rgb, make_thumbnail
+from .raw_preview import load_rgb, make_thumbnail, raw_exif
 from .store import CullStore
 
 # analyze() keys that are stored as columns / not part of the raw "meta" blob (mirrors worker._NON_META_KEYS)
@@ -80,6 +80,13 @@ def run_session(
         exif = img.getexif()
         ctime = capture_time(exif)
         camera = camera_id(exif, item.filename)
+        # RAW preview pixels carry no EXIF, so capture time is lost above — re-read it from the RAW
+        # file's embedded preview (the camera body still comes from the filename prefix, which keeps
+        # two same-model bodies apart).
+        if item.is_raw and ctime is None:
+            rexif = raw_exif(Path(item.load_path))
+            if rexif is not None:
+                ctime = capture_time(rexif)
         store.set_photo_meta(pid, camera, ctime)
 
         rec = analyze(img, ctime)

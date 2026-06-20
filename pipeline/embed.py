@@ -59,22 +59,29 @@ def aesthetic_score(emb):
 
 
 def capture_time(exif) -> float | None:
-    """EXIF DateTimeOriginal (+ sub-second) as epoch seconds, or None."""
+    """EXIF capture time as epoch seconds, or None.
+
+    Prefers DateTimeOriginal, then DateTimeDigitized, then the base-IFD DateTime. The last fallback
+    matters for RAW: a RAW's *embedded preview* (which is what we read) often carries only the
+    base-IFD DateTime (0x0132), not the ExifIFD's DateTimeOriginal — so without it, RAW capture time
+    is lost and everything falls back to the (frequently bogus) filesystem mtime.
+    """
     try:
         sub = exif.get_ifd(0x8769)        # ExifIFD
-        dto = sub.get(0x9003)             # DateTimeOriginal
-        if dto:
-            t = datetime.datetime.strptime(dto, "%Y:%m:%d %H:%M:%S")
-            frac = sub.get(0x9291)        # SubsecTimeOriginal
-            if frac:
-                try:
-                    t += datetime.timedelta(seconds=float("0." + str(frac).strip()))
-                except ValueError:
-                    pass
-            return t.timestamp()
+        dto = sub.get(0x9003) or sub.get(0x9004)   # DateTimeOriginal, then DateTimeDigitized
+        stamp = dto or exif.get(0x0132)            # base-IFD DateTime fallback
+        if not stamp:
+            return None
+        t = datetime.datetime.strptime(str(stamp).strip()[:19], "%Y:%m:%d %H:%M:%S")
+        frac = sub.get(0x9291)            # SubsecTimeOriginal (only meaningful alongside DTO)
+        if dto and frac:
+            try:
+                t += datetime.timedelta(seconds=float("0." + str(frac).strip()))
+            except ValueError:
+                pass
+        return t.timestamp()
     except Exception:
-        pass
-    return None
+        return None
 
 
 def camera_id(exif, filename: str) -> str:
