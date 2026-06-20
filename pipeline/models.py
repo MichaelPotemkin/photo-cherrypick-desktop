@@ -6,6 +6,7 @@ cheap and the heavy models load once on first use (or via warmup() at container 
 from __future__ import annotations
 
 import os
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -13,8 +14,27 @@ import cv2
 import open_clip
 import torch
 
-_WEIGHTS = Path(__file__).resolve().parent / "weights"
-_WEIGHTS.mkdir(exist_ok=True)
+
+def _weights_dir() -> Path:
+    """Where the downloaded model weights live (YuNet, aesthetic head).
+
+    From source this is `pipeline/weights/`. But when frozen (the packaged desktop app) `__file__`
+    points into PyInstaller's `_MEIPASS` extraction dir, which is **ephemeral** (wiped each launch)
+    and not a real package directory — writing there fails and would re-download ~GB every run. So
+    persist under the user's app-data dir (the same default the server uses for `CULL_DATA_DIR`).
+    `CULL_WEIGHTS_DIR` overrides either way.
+    """
+    env = os.environ.get("CULL_WEIGHTS_DIR")
+    if env:
+        return Path(env).expanduser()
+    if getattr(sys, "frozen", False):
+        base = Path(os.environ.get("CULL_DATA_DIR", Path.home() / ".photo-cherrypick-desktop"))
+        return base / "weights"
+    return Path(__file__).resolve().parent / "weights"
+
+
+_WEIGHTS = _weights_dir()
+_WEIGHTS.mkdir(parents=True, exist_ok=True)
 
 YUNET_URL = ("https://github.com/opencv/opencv_zoo/raw/main/models/"
              "face_detection_yunet/face_detection_yunet_2023mar.onnx")
