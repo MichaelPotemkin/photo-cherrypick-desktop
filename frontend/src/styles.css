@@ -1001,6 +1001,8 @@ body {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 4px;
+  /* keep the right-hand "next group" button clear of the absolutely-positioned close ✕ */
+  padding-right: 44px;
 }
 .groupnav-label {
   font-size: 13px;
