@@ -19,6 +19,11 @@ frontend/dist/
 *.env.local
 # tauri
 desktop/src-tauri/target/
+desktop/src-tauri/gen/
+desktop/src-tauri/bin/
+# PyInstaller freeze output (the frozen sidecar; produced at release time)
+/build/
+/dist/
 # model weights — auto-downloaded on first run by pipeline/models.py
 pipeline/weights/
 # local editor / tool config

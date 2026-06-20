@@ -8,6 +8,7 @@ singletons are not thread-safe); set `CULL_SYNC=1` to process inline (used by te
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -206,7 +207,13 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     # Serve hashed build assets from /assets, and fall everything else back to index.html so a hard
     # refresh / deep link to a client-side route (e.g. /session/<id>) doesn't 404. Registered after
     # the /api routes, so those still win; /api/* 404s stay JSON.
-    spa = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+    # When frozen (PyInstaller onefile, in the Tauri app), the SPA is bundled under sys._MEIPASS;
+    # from source it's <repo>/frontend/dist. Both land at <base>/frontend/dist.
+    if getattr(sys, "frozen", False):
+        spa_base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+    else:
+        spa_base = Path(__file__).resolve().parent.parent
+    spa = spa_base / "frontend" / "dist"
     if spa.is_dir():
         spa_root = spa.resolve()
         index_html = spa / "index.html"

@@ -1,0 +1,164 @@
+name: release-macos
+
+# Cut a public release of Photo Cherrypick (macOS, Apple Silicon, UNSIGNED).
+#
+# Trigger: push a tag matching v* (e.g. v1.0.0). See RELEASING.md for the full runbook.
+#
+# Pipeline on the macos-14 (arm64) runner:
+#   1. assert the tag matches tauri.conf.json's version AND the updater signing secret is set
+#   2. build the SPA (frontend/dist) FIRST — the frozen sidecar bundles + serves it
+#   3. freeze the Python FastAPI sidecar with PyInstaller (incl. frontend/dist) ->
+#      desktop/src-tauri/bin/cull-server-aarch64-apple-darwin
+#   4. build the Tauri app with the official tauri-apps/tauri-action, which creates the GitHub
+#      Release for the tag and (updater configured + signing secrets present) signs + uploads the
+#      updater artifacts (.app.tar.gz + .sig) and latest.json alongside the .dmg.
+#
+# Distribution is UNSIGNED (no Apple Developer ID / no notarization). We ad-hoc sign the bundle so
+# Apple Silicon will launch it at all (arm64 refuses Mach-O with a missing/invalid signature). End
+# users still bypass Gatekeeper once (right-click -> Open / xattr — see the release body + README).
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# tauri-action needs write access to create the Release and upload assets (uses GITHUB_TOKEN).
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # macos-14 is the GitHub-hosted Apple Silicon (arm64) runner — matches aarch64-apple-darwin.
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check release prerequisites
+        env:
+          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -eu
+          if [ -z "${SIGNING_KEY}" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set — the auto-update artifacts can't be signed,"
+            echo "so the release would ship a broken updater. Add it (and optionally"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD) under repo Settings -> Secrets and variables -> Actions."
+            echo "See RELEASING.md (one-time updater key setup)."
+            exit 1
+          fi
+          TAG="${GITHUB_REF_NAME#v}"
+          CONF=$(python3 -c "import json;print(json.load(open('desktop/src-tauri/tauri.conf.json'))['version'])")
+          if [ "${TAG}" != "${CONF}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} (-> ${TAG}) != tauri.conf.json version ${CONF}."
+            echo "Bump the version in tauri.conf.json + frontend/package.json + Cargo.toml, commit, then retag."
+            exit 1
+          fi
+          echo "Releasing version ${CONF} from tag ${GITHUB_REF_NAME}"
+
+      # --- SPA (frontend) — built BEFORE the freeze: the sidecar bundles + serves it ----------
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the SPA
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      # --- Python sidecar (PyInstaller) ---------------------------------------
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python deps + PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          # On macOS arm64 the default PyPI torch/torchvision wheels ARE the CPU/MPS arm64 builds
+          # (no CUDA on macOS), so a plain install matches the pinned versions in requirements.txt.
+          pip install -r requirements.txt
+          pip install pyinstaller==6.11.1
+
+      - name: Freeze the sidecar (PyInstaller)
+        run: |
+          # Repo root: the spec resolves REPO_ROOT from cwd and bundles server/desktop_core/pipeline +
+          # torch/open_clip/cv2/rawpy binaries+data + frontend/dist (built above).
+          pyinstaller --noconfirm desktop/cull-server.spec
+          # Tauri's externalBin requires the binary renamed with the Rust target triple.
+          mkdir -p desktop/src-tauri/bin
+          cp dist/cull-server desktop/src-tauri/bin/cull-server-aarch64-apple-darwin
+          chmod +x desktop/src-tauri/bin/cull-server-aarch64-apple-darwin
+          # Ad-hoc sign the frozen sidecar so the nested Mach-O has a valid signature on arm64.
+          codesign --force --sign - desktop/src-tauri/bin/cull-server-aarch64-apple-darwin
+
+      # --- Rust / Tauri -------------------------------------------------------
+      - name: Set up Rust (stable, aarch64-apple-darwin)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache cargo + Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+
+      - name: Build + release with tauri-action
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Updater artifact signing (free minisign keypair — NOT Apple code signing). With these set,
+          # tauri-action signs the .app.tar.gz, emits its .sig, and writes latest.json (matching
+          # plugins.updater.pubkey in tauri.conf.json).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Ad-hoc macOS signing ("-"): Tauri's bundler signs the .app (and nested sidecar) during the
+          # build so the app inside the .dmg AND the .app.tar.gz updater artifact carry a valid ad-hoc
+          # signature. This is the only signing we do (unsigned distribution; no notarization).
+          APPLE_SIGNING_IDENTITY: '-'
+        with:
+          projectPath: desktop/src-tauri
+          args: --target aarch64-apple-darwin
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Photo Cherrypick ${{ github.ref_name }}'
+          releaseDraft: false
+          prerelease: false
+          releaseBody: |
+            ## Photo Cherrypick ${{ github.ref_name }} — macOS (Apple Silicon)
+
+            Download the `.dmg` below (or from itch.io), open it, and drag **Photo Cherrypick** to Applications.
+
+            ### First launch (unsigned app — one-time Gatekeeper bypass)
+            This build is **not** signed with an Apple Developer ID or notarized, so macOS quarantines it
+            on first open. Clear the quarantine once:
+
+            - **Right-click** (or Control-click) the app -> **Open** -> **Open** in the dialog, **or**
+            - run in Terminal:
+              ```
+              xattr -dr com.apple.quarantine "/Applications/Photo Cherrypick.app"
+              ```
+
+            After that it launches normally and **updates itself in place** from then on.
+
+            > Requires Apple Silicon (M-series) and macOS 11+. The first launch is slow (it unpacks the
+            > bundled ML runtime) and needs internet once to download the model weights.
+
+      # --- Defensive ad-hoc re-sign (best-effort) -----------------------------
+      - name: Ad-hoc re-sign the built .app (best-effort)
+        if: always()
+        run: |
+          APP=$(find desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos \
+                  -maxdepth 1 -name '*.app' -print -quit 2>/dev/null || true)
+          if [ -n "$APP" ]; then
+            echo "Ad-hoc signing $APP"
+            codesign --force --deep --sign - "$APP" || true
+            codesign --verify --deep --verbose=2 "$APP" || true
+          else
+            echo "No .app bundle found to re-sign (skipping)."
+          fi
