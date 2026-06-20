@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createSession, deleteSession, listSessions } from "../api";
 import type { SessionListItem } from "../api";
-import { useI18n } from "../i18n";
+import { useI18n, tVariants } from "../i18n";
 import { inTauri, pickFolder } from "../lib/tauri";
 import HelpButton from "./HelpGuide";
 import LangToggle from "./LangToggle";
+import StableLabel from "./StableLabel";
+import ConfirmModal from "./ConfirmModal";
 
 interface Props {
   onOpen: (id: string) => void;
@@ -28,6 +30,8 @@ function folderName(path: string): string {
 export default function SessionInput({ onOpen }: Props) {
   const { t } = useI18n();
   const [path, setPath] = useState("");
+  // Session queued for deletion, surfaced as a confirm popup (null = none).
+  const [pendingDelete, setPendingDelete] = useState<SessionListItem | null>(null);
 
   function statusLabel(s: SessionListItem): string {
     if (s.status === "processing")
@@ -102,7 +106,7 @@ export default function SessionInput({ onOpen }: Props) {
                 disabled={mutation.isPending}
                 data-tip={t("choose_folder_title")}
               >
-                {t("choose_folder")}
+                <StableLabel text={t("choose_folder")} reserve={tVariants("choose_folder")} />
               </button>
             )}
           </div>
@@ -148,15 +152,7 @@ export default function SessionInput({ onOpen }: Props) {
                   data-tip={t("delete_session")}
                   aria-label={t("delete_session")}
                   disabled={delMutation.isPending}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        t("delete_confirm", { name: s.title || folderName(s.source_url) }),
-                      )
-                    ) {
-                      delMutation.mutate(s.id);
-                    }
-                  }}
+                  onClick={() => setPendingDelete(s)}
                 >
                   ✕
                 </button>
@@ -165,6 +161,22 @@ export default function SessionInput({ onOpen }: Props) {
           </div>
         )}
       </div>
+
+      {pendingDelete && (
+        <ConfirmModal
+          danger
+          message={t("delete_confirm", {
+            name: pendingDelete.title || folderName(pendingDelete.source_url),
+          })}
+          confirmLabel={t("delete_session")}
+          cancelLabel={t("cancel")}
+          onConfirm={() => {
+            delMutation.mutate(pendingDelete.id);
+            setPendingDelete(null);
+          }}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Counts, ViewMode } from "../api";
-import { useI18n } from "../i18n";
+import { useI18n, tVariants } from "../i18n";
 import HelpButton from "./HelpGuide";
 import LangToggle from "./LangToggle";
+import StableLabel from "./StableLabel";
+import ConfirmModal from "./ConfirmModal";
 
 interface Props {
   title: string;
@@ -37,6 +39,10 @@ export default function CountsHeader({
 }: Props) {
   const { t } = useI18n();
   const nPicks = counts.favorite + counts.maybe;
+  // Count suffix shown inside the Accept/Download buttons (omitted at zero). Kept identical on the live
+  // label and its reserved variants so the button stays the same width across languages — see StableLabel.
+  const acceptSuffix = nSuggestions ? ` (${nSuggestions})` : "";
+  const downloadSuffix = nPicks ? ` (${nPicks})` : "";
 
   // Inline rename of the session title.
   const [editing, setEditing] = useState(false);
@@ -149,45 +155,27 @@ export default function CountsHeader({
             </button>
           </div>
 
-          {confirmAccept ? (
-            <div className="accept-confirm">
-              <span className="muted small">{t("accept_confirm", { n: nSuggestions })}</span>
-              <button
-                className="btn btn-sm btn-accent"
-                onClick={() => {
-                  onAcceptSuggestions();
-                  setConfirmAccept(false);
-                }}
-                data-tip={t("accept_title")}
-              >
-                {t("confirm")}
-              </button>
-              <button
-                className="btn btn-sm btn-ghost"
-                onClick={() => setConfirmAccept(false)}
-                data-tip={t("cancel")}
-              >
-                {t("cancel")}
-              </button>
-            </div>
-          ) : (
-            <button
-              className="btn btn-ghost"
-              disabled={nSuggestions === 0}
-              onClick={() => setConfirmAccept(true)}
-              data-tip={nSuggestions === 0 ? t("accept_none_title") : t("accept_title")}
-            >
-              {t("accept_picks")}
-              {nSuggestions ? ` (${nSuggestions})` : ""}
-            </button>
-          )}
+          <button
+            className="btn btn-ghost"
+            disabled={nSuggestions === 0}
+            onClick={() => setConfirmAccept(true)}
+            data-tip={nSuggestions === 0 ? t("accept_none_title") : t("accept_title")}
+          >
+            <StableLabel
+              text={`${t("accept_picks")}${acceptSuffix}`}
+              reserve={tVariants("accept_picks").map((v) => `${v}${acceptSuffix}`)}
+            />
+          </button>
 
           <button
             className={`btn ${hideSorted ? "btn-accent" : "btn-ghost"}`}
             onClick={onToggleHide}
             data-tip={hideSorted ? t("show_all_title") : t("hide_sorted_title")}
           >
-            {hideSorted ? t("show_all") : t("hide_sorted")}
+            <StableLabel
+              text={hideSorted ? t("show_all") : t("hide_sorted")}
+              reserve={[...tVariants("hide_sorted"), ...tVariants("show_all")]}
+            />
           </button>
           <button
             className="btn btn-accent"
@@ -195,11 +183,26 @@ export default function CountsHeader({
             disabled={nPicks === 0}
             data-tip={nPicks === 0 ? t("download_disabled_title") : t("download_title")}
           >
-            {t("download_picks")}
-            {nPicks ? ` (${nPicks})` : ""}
+            <StableLabel
+              text={`${t("download_picks")}${downloadSuffix}`}
+              reserve={tVariants("download_picks").map((v) => `${v}${downloadSuffix}`)}
+            />
           </button>
         </div>
       </div>
+
+      {confirmAccept && (
+        <ConfirmModal
+          message={t("accept_confirm", { n: nSuggestions })}
+          confirmLabel={t("confirm")}
+          cancelLabel={t("cancel")}
+          onConfirm={() => {
+            onAcceptSuggestions();
+            setConfirmAccept(false);
+          }}
+          onCancel={() => setConfirmAccept(false)}
+        />
+      )}
     </header>
   );
 }

@@ -567,6 +567,14 @@ function interpolate(s: string, vars?: Record<string, string | number>): string 
   return out;
 }
 
+// Every language's rendering of a key (same fallback chain as `t`). Used to reserve the width of the
+// widest translation so a control's size doesn't change when the language switches — see StableLabel.
+export function tVariants(key: string, vars?: Record<string, string | number>): string[] {
+  return (Object.keys(DICTS) as Lang[]).map((l) =>
+    interpolate(DICTS[l][key] ?? en[key] ?? key, vars),
+  );
+}
+
 interface I18n {
   lang: Lang;
   setLang: (l: Lang) => void;

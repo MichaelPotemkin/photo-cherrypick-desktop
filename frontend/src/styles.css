@@ -89,6 +89,17 @@ body {
   border-color: var(--accent);
   font-weight: 600;
 }
+/* filled-red primary for destructive confirms (e.g. delete session) */
+.btn-danger {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+  font-weight: 600;
+}
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--red);
+  filter: brightness(1.12);
+}
 .btn-ghost {
   background: transparent;
 }
@@ -536,12 +547,57 @@ body {
   color: #06121a;
 }
 
-/* Inline confirm row for "Accept picks". */
-.accept-confirm {
-  display: inline-flex;
+/* Width-stable label: the live text plus every reserved variant share one grid cell, so the box
+   sizes to the widest and a button doesn't resize when the language (or a toggled label) changes.
+   Ghosts stay in flow (visibility:hidden, not display:none) so they still contribute their width. */
+.stable-label {
+  display: inline-grid;
+}
+.stable-label > * {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+.stable-ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Generic centered modal — confirm dialogs ("Accept picks", …). Above the header (10), lightbox (100)
+   and help overlay (120). */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 130;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 4px;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow: auto; /* a tall dialog (long translation / short window) stays scrollable, not clipped */
+}
+.modal {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.confirm-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.confirm-message {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* Home card header row: title on the left, language switch on the right. */
