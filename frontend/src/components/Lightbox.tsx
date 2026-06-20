@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DecisionAction, Group, ViewMode } from "../api";
 import { useI18n } from "../i18n";
 import { AxisGrid } from "./AxisBars";
@@ -39,6 +39,49 @@ export default function Lightbox({
   const [hover, setHover] = useState(false);
   const [origin, setOrigin] = useState("50% 50%");
 
+  // Focus management: move focus into the dialog on open, trap Tab inside it, and restore focus to
+  // the trigger on close. Only Tab is intercepted — Esc / arrows / f-m-x-u stay with the session's
+  // global keyboard handler (useKeyboard), which owns them while the lightbox is open. Runs once for
+  // the lightbox's lifetime (it stays mounted across photo navigation), so focus isn't re-grabbed on
+  // every frame change.
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const prevFocus = document.activeElement as HTMLElement | null;
+    lightboxRef.current?.focus();
+
+    const focusables = (): HTMLElement[] =>
+      Array.from(
+        lightboxRef.current?.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => !el.hasAttribute("disabled"));
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return; // let the global handler own everything else
+      const items = focusables();
+      if (items.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const act = document.activeElement;
+      if (e.shiftKey && (act === first || act === lightboxRef.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && act === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      prevFocus?.focus?.();
+    };
+  }, []);
+
   const photo = group.photos[index];
   if (!photo) return null;
 
@@ -72,7 +115,15 @@ export default function Lightbox({
 
   return (
     <div className="lightbox-overlay" onClick={onClose}>
-      <div className="lightbox" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label={groupLabel}
+        tabIndex={-1}
+        ref={lightboxRef}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           className="lightbox-close"
           onClick={onClose}
