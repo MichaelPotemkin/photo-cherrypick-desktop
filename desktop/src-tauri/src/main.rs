@@ -205,9 +205,17 @@ fn main() {
                 });
             }
 
-            // 3. wait for the sidecar, then open the window onto it (it serves the SPA + API)
+            // 3. wait for the sidecar, then open the window onto it (it serves the SPA + API).
+            //    The `?v=<version>` cache-buster is load-bearing: the WKWebView persists its cache
+            //    across app versions and does NOT reliably revalidate the top-level document even with
+            //    `Cache-Control: no-store` (server/app.py), so after an auto-update it would serve the
+            //    cached old index.html — pointing at the previous hashed bundle — and the new UI would
+            //    never appear. A version-stamped URL is one WKWebView has never cached, forcing a fresh
+            //    document (which then references the new content-hashed assets). Same origin, so the
+            //    SPA's localStorage — e.g. the language choice — is preserved across versions.
+            let version = app.package_info().version.to_string();
             wait_for_server(PORT);
-            let url = format!("http://127.0.0.1:{PORT}");
+            let url = format!("http://127.0.0.1:{PORT}/?v={version}");
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url.parse().unwrap()))
                 .title("Photo Cherrypick")
                 .inner_size(1280.0, 860.0)
