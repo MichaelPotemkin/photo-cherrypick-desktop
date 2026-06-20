@@ -12,7 +12,7 @@ import {
 // vocab (scoring reasons, axis names, shot scales) is translated through the same dict via the
 // tReason/tAxis/tScale helpers, falling back to the original English when a key is unknown.
 
-export type Lang = "en" | "uk";
+export type Lang = "en" | "uk" | "ru";
 
 type Dict = Record<string, string>;
 
@@ -381,7 +381,184 @@ const uk: Dict = {
   "scale:wide": "загальний",
 };
 
-const DICTS: Record<Lang, Dict> = { en, uk };
+const ru: Dict = {
+  app_title: "Photo Cherrypick",
+  home_tagline:
+    "Выберите папку с фото (RAW или JPEG) для анализа и отбора. Всё остаётся на вашем компьютере — ничего не загружается в интернет.",
+  choose_folder: "Выбрать папку…",
+  analyze_folder: "Анализировать папку",
+  choose_folder_title: "Обзор папок с фото на вашем компьютере",
+  analyze_folder_title: "Проанализировать папку и начать отбор — ничто не покидает ваш компьютер",
+  analyzing: "Анализ…",
+  failed_create: "Не удалось создать сессию",
+  recent_sessions: "Недавние сессии",
+  n_photos: "{n} фото",
+  status_analyzing: "анализ {done}/{total}…",
+  status_queued: "в очереди…",
+  status_error: "ошибка",
+  status_kept_maybe: "{fav} выбрано · {maybe} под вопросом",
+  delete_session: "Удалить сессию",
+  delete_confirm:
+    "Удалить «{name}»? Это удалит сессию и её решения по отбору (ваши файлы фото не затрагиваются).",
+  close: "Закрыть",
+
+  // --- how-to guide ---
+  help_button: "Как пользоваться",
+  help_title: "Как пользоваться Photo Cherrypick",
+  help_loading_hint:
+    "Пока фото анализируются, вот как устроен процесс — ваши решения сохраняются автоматически.",
+  help_intro:
+    "Проанализируйте папку один раз; все три прохода ниже работают с тем же набором фото. Ваши отметки ★ выбрать / ? под вопросом / 🗑 удалить сохраняются и переходят между всеми проходами — повторно загружать не нужно.",
+  help_pass1_title: "Проход 1 · Отбор (Серия)",
+  help_pass1_body:
+    "Каждая группа — это серия почти одинаковых кадров. Выберите лучший: ★ выбрать, ? под вопросом, 🗑 удалить — клавиши f / m / x (u — отменить). Кадр с отметкой ✨ — лучший по оценке алгоритма; но доверяйте собственному глазу.",
+  help_pass2_title: "Проход 2 · Группировка (Сцена)",
+  help_pass2_body:
+    "Переключитесь на «Сцену», чтобы увидеть выбранное, перегруппированное по месту и образу, без учёта времени — удобно для галереи или набора в Instagram. Удалённые фото не показываются.",
+  help_pass3_title: "Проход 3 · Раскладка (Лента)",
+  help_pass3_body:
+    "«Лента» раскладывает ваши ★ выбранные в сбалансированную сетку — чередование планов, сцены разнесены — чтобы увидеть, как набор смотрится вместе.",
+  help_download:
+    "Когда всё готово, «Скачать выбранное» сохранит выбранное и отмеченное «под вопросом» как ZIP с нетронутыми оригиналами. Ничего не изменяется, не перемещается и не загружается в интернет.",
+  help_got_it: "Понятно",
+
+  new_session: "Новая сессия",
+  rename_session: "Переименовать сессию",
+  session_name: "Название сессии",
+  sub_bursts: "серий: {n}",
+  sub_scenes: "сцен: {n}",
+  sub_feed: "в ленте: {n}",
+  aria_grouping_mode: "Режим группировки",
+  aria_language: "Язык",
+  mode_burst: "Серия",
+  mode_scene: "Сцена",
+  mode_feed: "Лента",
+  mode_burst_title:
+    "Серия — почти одинаковые кадры, снятые подряд. Первый проход отбора: выберите лучший кадр в каждой серии.",
+  mode_scene_title:
+    "Сцена — все похожие кадры (то же место и образ) сгруппированы вместе, без учёта времени. Второй проход: соберите галерею / набор для Instagram из выбранного.",
+  mode_feed_title:
+    "Лента — ваше выбранное, разложенное в сбалансированную сетку галереи/Instagram: чередование планов, сцены разнесены. Финальный проход: посмотрите, как набор читается сеткой.",
+  undecided: "без решения: {n}",
+  kept: "★ выбрано: {n}",
+  maybe_pill: "? под вопросом: {n}",
+  trash_pill: "🗑 удалено: {n}",
+  hide_sorted: "Скрыть разобранные",
+  show_all: "Показать все",
+  hide_sorted_title: "Скрыть уже разобранные фото (выбранные, под вопросом или удалённые)",
+  show_all_title: "Показать все фото, включая уже разобранные",
+  accept_picks: "✓ Принять подсказки",
+  accept_confirm: "Добавить {n} подсказок в выбранное?",
+  confirm: "Подтвердить",
+  cancel: "Отмена",
+  accept_title: "Добавить в выбранное лучший кадр алгоритма в каждой серии, где ещё нет решения",
+  accept_none_title: "Нет подсказок без решения, которые можно принять",
+  download_picks: "⬇ Скачать выбранное",
+  download_disabled_title: "Сначала отметьте несколько фото как выбранное или под вопросом",
+  download_title: "Скачать ваш выбор (выбранное + под вопросом) как ZIP с оригиналами",
+
+  group: "Группа",
+  label_burst_pick: "{n} в серии — выберите один кадр",
+  label_single: "одиночный кадр",
+  label_scene: "{n} в сцене",
+  label_unique: "уникальный образ",
+  close_call: "⚖ трудно решить",
+  close_call_title:
+    "Два лучших кадра отличаются на волосок — алгоритм здесь не уверен. Доверьтесь собственному глазу.",
+  empty_hidden: "Нечего показать. Попробуйте выключить «Скрыть разобранные».",
+
+  badge_suggested: "✨ подсказка",
+  badge_kept: "★ выбрано",
+  badge_maybe: "? под вопросом",
+  badge_trash: "🗑 удалено",
+  btn_fav: "★ выбрать",
+  btn_maybe: "? под вопросом",
+  btn_trash: "🗑 удалить",
+  btn_undo: "↩ отменить",
+  // icon-only labels for the dense per-card action row (locale-independent, equal width)
+  btn_fav_short: "★",
+  btn_maybe_short: "?",
+  btn_trash_short: "🗑",
+  btn_undo_short: "↩",
+  mark_favorite: "Добавить в выбранное",
+  remove_favorite: "Убрать из выбранного",
+  mark_maybe: "Отметить «под вопросом»",
+  remove_maybe: "Убрать «под вопросом»",
+  mark_trash: "Удалить",
+  remove_trash: "Отменить удаление",
+  clear_label: "Сбросить отметку",
+  score: "оценка {n}",
+  bw: "ч/б",
+  axes_title: "Оси",
+  prev_group: "‹ предыдущая группа",
+  next_group: "следующая группа ›",
+  prev_group_title: "Предыдущая группа (↑)",
+  next_group_title: "Следующая группа (↓)",
+  prev_photo_title: "Предыдущее фото (←)",
+  next_photo_title: "Следующее фото (→)",
+  close_esc: "Закрыть (Esc)",
+  hover_zoom: "Наведите, чтобы увеличить — двигайте курсором, чтобы рассмотреть",
+  suggested_caption: "✨ подсказка",
+
+  feed_planning: "Готовим ленту…",
+  feed_failed: "Не удалось составить ленту",
+  feed_empty_pre: "Отметьте несколько фото как ",
+  feed_empty_strong: "★ выбранное",
+  feed_empty_post: ", чтобы составить ленту.",
+  feed_hint:
+    "{n} выбранных разложено в сбалансированную сетку — чередование планов, сцены разнесены. Порядок чтения — сверху слева.",
+
+  status_label: "Статус",
+  st_pending: "ожидает",
+  st_processing: "обработка",
+  st_ready: "готово",
+  st_err: "ошибка",
+  photos_pct: "{done} / {total} фото ({pct}%)",
+
+  failed_load_session: "Не удалось загрузить сессию",
+  back_new_session: "← Новая сессия",
+  analysis_failed: "Не удалось проанализировать",
+  unknown_error: "Неизвестная ошибка",
+  loading: "Загрузка…",
+  loading_groups: "Загрузка групп…",
+  failed_load_groups: "Не удалось загрузить группы",
+
+  "reason:eyes open": "глаза открыты",
+  "reason:all eyes open": "все глаза открыты",
+  "reason:sharp eyes": "резкие глаза",
+  "reason:smiling": "улыбка",
+  "reason:everyone smiling": "все улыбаются",
+  "reason:eye contact": "взгляд в камеру",
+  "reason:well exposed": "хорошая экспозиция",
+  "reason:catchlight": "блик в глазах",
+  "reason:sunglasses — judged on pose & expression": "очки — оценка по позе и выражению",
+
+  "cat:Focus": "Резкость",
+  "cat:Subject": "Объект",
+  "cat:Compos": "Композ.",
+  "cat:Expo": "Экспоз.",
+  "cat:Aesth": "Эстет.",
+
+  "axis:eye sharpness": "резкость глаз",
+  "axis:face sharpness": "резкость лица",
+  "axis:subject vs bg": "объект и фон",
+  "axis:exposure": "экспозиция",
+  "axis:contrast": "контраст",
+  "axis:eyes open": "глаза открыты",
+  "axis:expression": "выражение лица",
+  "axis:eye contact": "взгляд в камеру",
+  "axis:rule of thirds": "правило третей",
+  "axis:headroom": "пространство над головой",
+  "axis:framing/size": "кадрирование/размер",
+  "axis:clean bg": "чистый фон",
+  "axis:aesthetic": "эстетика",
+
+  "scale:close": "крупный",
+  "scale:medium": "средний",
+  "scale:wide": "общий",
+};
+
+const DICTS: Record<Lang, Dict> = { en, uk, ru };
 
 function interpolate(s: string, vars?: Record<string, string | number>): string {
   if (!vars) return s;
@@ -401,8 +578,10 @@ const Ctx = createContext<I18n | null>(null);
 function detectInitial(): Lang {
   try {
     const saved = localStorage.getItem("lang");
-    if (saved === "en" || saved === "uk") return saved;
-    if (navigator.language?.toLowerCase().startsWith("uk")) return "uk";
+    if (saved === "en" || saved === "uk" || saved === "ru") return saved;
+    const nav = navigator.language?.toLowerCase() ?? "";
+    if (nav.startsWith("uk")) return "uk";
+    if (nav.startsWith("ru")) return "ru";
   } catch {
     // ignore (no localStorage)
   }
