@@ -25,12 +25,17 @@ def _add_to_zip(zf: zipfile.ZipFile, src: Path, arc: str, when_ts: float | None 
     """Add `src` to the zip as `arc`, timestamped by the photo's CAPTURE time when known.
 
     The file's filesystem mtime is unreliable (the test RAWs carry a bogus 1979 mtime), so prefer
-    the EXIF capture time (`when_ts`) and fall back to the mtime. The ZIP format cannot encode
-    timestamps before 1980-01-01 — `ZipFile.write()` would raise "ZIP does not support timestamps
-    before 1980" and fail the whole export — so anything earlier is clamped. Streams the file."""
+    the EXIF capture time (`when_ts`) and fall back to the mtime. The ZIP DOS timestamp can only
+    encode years 1980-2107, so anything outside that window — a pre-1980 mtime, or a corrupt /
+    far-future EXIF clock — is clamped to 1980-01-01 rather than crashing the whole export
+    (`zipfile` raises on dates it can't pack). `localtime` itself can choke on absurd epochs, so it's
+    guarded too. Streams the file (no full-file read)."""
     ts = when_ts if when_ts else src.stat().st_mtime
-    dt = time.localtime(ts)[:6]
-    if dt[0] < 1980:
+    try:
+        dt = time.localtime(ts)[:6]
+    except (OSError, ValueError, OverflowError):
+        dt = None
+    if not dt or not (1980 <= dt[0] <= 2107):
         dt = (1980, 1, 1, 0, 0, 0)
     info = zipfile.ZipInfo(arc, date_time=dt)
     info.compress_type = zipfile.ZIP_STORED

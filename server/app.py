@@ -213,7 +213,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         if (spa / "assets").is_dir():
             app.mount("/assets", StaticFiles(directory=str(spa / "assets")), name="assets")
 
-        @app.get("/{full_path:path}", include_in_schema=False)
+        @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
         def spa_fallback(full_path: str):
             if full_path.startswith("api/"):
                 raise HTTPException(404, "not found")

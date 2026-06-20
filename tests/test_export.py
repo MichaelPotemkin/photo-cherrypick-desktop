@@ -1,3 +1,4 @@
+import datetime
 import os
 import time
 import zipfile
@@ -69,9 +70,24 @@ def test_export_to_zip_handles_pre_1980_mtime(tmp_store, tmp_path):
         assert zf.getinfo("fav.jpg").date_time[0] >= 1980   # clamped to a valid year
 
 
+def test_export_to_zip_clamps_out_of_range_capture_time(tmp_store, tmp_path):
+    # ZIP DOS dates only span 1980-2107; a corrupt/far-future EXIF clock must NOT crash the export
+    src = tmp_path / "src"
+    sid = _seed(tmp_store, src)
+    future = datetime.datetime(3000, 1, 1).timestamp()   # year 3000 — outside the ZIP window
+    pid = next(p["id"] for p in tmp_store.list_photos(sid) if p["filename"] == "fav.jpg")
+    tmp_store._conn.execute("UPDATE photos SET ctime=? WHERE id=?", (future, pid))
+    tmp_store._conn.commit()
+
+    zpath = tmp_path / "picks.zip"
+    res = export_mod.export_to_zip(tmp_store, sid, zpath)   # must NOT raise struct.error
+    assert res["exported"] == 2
+    with zipfile.ZipFile(zpath) as zf:
+        assert 1980 <= zf.getinfo("fav.jpg").date_time[0] <= 2107   # clamped into range
+
+
 def test_export_zip_timestamps_by_capture_time(tmp_store, tmp_path):
     # the real EXIF capture time wins over the (here bogus 1979) filesystem mtime
-    import datetime
     src = tmp_path / "src"
     sid = _seed(tmp_store, src)
     pre_1980 = time.mktime((1979, 11, 30, 12, 0, 0, 0, 0, -1))
