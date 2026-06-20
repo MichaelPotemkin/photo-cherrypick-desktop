@@ -225,10 +225,15 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             if full_path.startswith("api/"):
                 raise HTTPException(404, "not found")
             candidate = (spa / full_path).resolve()
-            # serve a real top-level file (favicon, etc.); guard against path traversal
+            # serve a real top-level file (favicon, etc.); guard against path traversal.
+            # /assets/* are content-hashed (immutable) so they stay cacheable.
             if full_path and candidate.is_file() and spa_root in candidate.parents:
                 return FileResponse(candidate)
-            return FileResponse(index_html)
+            # The SPA entry MUST NOT be cached: the Tauri webview persists its cache across app
+            # versions, so after an auto-update a cached index.html would keep pointing at the old
+            # hashed bundle and the new UI would never appear. no-store forces a fresh entry every
+            # launch (the hashed assets it references are then fetched normally).
+            return FileResponse(index_html, headers={"Cache-Control": "no-store"})
 
     return app
 
