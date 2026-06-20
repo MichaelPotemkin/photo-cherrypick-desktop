@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    The bundled `cull-server` sidecar is a PyInstaller onefile: at launch it extracts and dlopen()s
+    its own Python.framework + torch/opencv dylibs, which carry a different (or no) Team ID than the
+    ad-hoc signature Tauri applies. Under the hardened runtime macOS LIBRARY VALIDATION then refuses
+    to load them ("...different Team IDs..."), so the server never starts and the app shows a blank
+    window. These entitlements relax exactly those checks so a PyInstaller/torch process runs:
+  -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+</dict>
+</plist>

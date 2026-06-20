@@ -134,31 +134,16 @@ jobs:
 
             Download the `.dmg` below (or from itch.io), open it, and drag **Photo Cherrypick** to Applications.
 
-            ### First launch (unsigned app — one-time Gatekeeper bypass)
-            This build is **not** signed with an Apple Developer ID or notarized, so macOS quarantines it
-            on first open. Clear the quarantine once:
+            ### First launch (unsigned app — one-time approval, no Terminal)
+            This build isn't signed with an Apple Developer ID, so the **first** time you open it macOS
+            asks you to confirm. You approve the app **once** — there are no Terminal commands:
 
-            - **Right-click** (or Control-click) the app -> **Open** -> **Open** in the dialog, **or**
-            - run in Terminal:
-              ```
-              xattr -dr com.apple.quarantine "/Applications/Photo Cherrypick.app"
-              ```
+            - **Right-click** (or Control-click) **Photo Cherrypick** → **Open** → **Open**, **or**
+            - if macOS only shows a "Done" button (Sequoia and later): open
+              **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**.
 
-            After that it launches normally and **updates itself in place** from then on.
+            The app takes care of the rest itself. The first launch is slow (~30–60s) while it unpacks the
+            bundled engine and needs internet once to download the model weights; after that it's fast and
+            **updates itself in place**.
 
-            > Requires Apple Silicon (M-series) and macOS 11+. The first launch is slow (it unpacks the
-            > bundled ML runtime) and needs internet once to download the model weights.
-
-      # --- Defensive ad-hoc re-sign (best-effort) -----------------------------
-      - name: Ad-hoc re-sign the built .app (best-effort)
-        if: always()
-        run: |
-          APP=$(find desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos \
-                  -maxdepth 1 -name '*.app' -print -quit 2>/dev/null || true)
-          if [ -n "$APP" ]; then
-            echo "Ad-hoc signing $APP"
-            codesign --force --deep --sign - "$APP" || true
-            codesign --verify --deep --verbose=2 "$APP" || true
-          else
-            echo "No .app bundle found to re-sign (skipping)."
-          fi
+            > Requires Apple Silicon (M-series) and macOS 11+.
