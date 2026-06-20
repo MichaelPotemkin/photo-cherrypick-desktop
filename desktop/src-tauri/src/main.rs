@@ -15,7 +15,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 #[cfg(desktop)]
