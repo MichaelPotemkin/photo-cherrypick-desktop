@@ -197,7 +197,7 @@ def _scene_groups(store: CullStore, sid: str, photos: dict, analyses: dict, stat
         members = []
         for oi, rec in enumerate(cluster):
             pid = rec["id"]
-            suggested = len(cluster) > 1 and oi == 0  # best frame of the scene
+            suggested = oi == 0  # best frame of the scene (a single-frame scene's only frame is it)
             members.append(_photo_obj(pid, photos[pid], analyses[pid], states.get(pid, "none"), suggested))
         n = len(cluster)
         ctimes = [photos[rec["id"]]["ctime"] for rec in cluster if photos[rec["id"]]["ctime"]]

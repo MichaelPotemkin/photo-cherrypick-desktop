@@ -117,7 +117,9 @@ def run_session(
             store.save_analysis(
                 r["id"], emb=r.get("emb"), meta=meta, axes=axes, cats=cats,
                 overall=overall, reasons=reasons, group_idx=gi, in_group_order=oi,
-                suggested=(len(g) > 1 and oi == 0),
+                # The best frame of every group is the suggested pick — including a single-shot group,
+                # whose only frame IS the pick (so it gets the ✨ badge and is included by Accept picks).
+                suggested=(oi == 0),
             )
         label = f"{len(g)} in burst — pick one" if len(g) > 1 else "single shot"
         when_ts = g[0].get("ctime")

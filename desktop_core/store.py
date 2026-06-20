@@ -85,7 +85,7 @@ _STATES = ("none", "favorite", "maybe", "delete")
 # decisions. `_migrate()` closes that: on boot it adds any column the current code expects that an
 # older DB is missing, so user data survives an app upgrade. RULE: when you add a column to _SCHEMA,
 # add the matching ALTER here (NOT NULL columns need a DEFAULT so the ALTER works on existing rows).
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 _COLUMN_MIGRATIONS = [
     ("photos", "original_path", "ALTER TABLE photos ADD COLUMN original_path TEXT NOT NULL DEFAULT ''"),
     ("photos", "preview_path", "ALTER TABLE photos ADD COLUMN preview_path TEXT"),
@@ -113,6 +113,22 @@ def _migrate(conn: sqlite3.Connection) -> None:
         if col not in columns(table):
             conn.execute(ddl)
             columns(table).add(col)
+
+    # Data migrations, keyed off PRAGMA user_version so each runs once on upgrade past its version.
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version < 2:
+        # v2: a single-shot group's only frame is now a suggested pick (it earns the ✨ badge and is
+        # included by "Accept picks"). Older DBs persisted suggested=0 for single shots — backfill the
+        # sole frame of every single-member group. Idempotent (guarded by suggested=0).
+        conn.execute(
+            "UPDATE analyses SET suggested = 1 "
+            "WHERE suggested = 0 AND in_group_order = 0 AND photo_id IN ("
+            "  SELECT a.photo_id FROM analyses a JOIN photos p ON p.id = a.photo_id "
+            "  WHERE a.group_idx IS NOT NULL "
+            "  GROUP BY p.session_id, a.group_idx HAVING COUNT(*) = 1"
+            ")"
+        )
+
     conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
 
