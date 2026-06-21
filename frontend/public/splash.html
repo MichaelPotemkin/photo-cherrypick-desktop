@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Photo Cherrypick</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: #111;
+        color: #eee;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      .spinner {
+        width: 34px; height: 34px;
+        border: 3px solid #2c2c2c;
+        border-top-color: #7ab;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .title { font-size: 15px; font-weight: 600; }
+      .hint { font-size: 12px; color: #999; max-width: 320px; text-align: center; min-height: 1.3em; padding: 0 16px; }
+      .retry { display: none; }
+      .btn {
+        background: #7ab; color: #06121a; border: none; border-radius: 6px;
+        padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Shown immediately on launch while the bundled photo engine (Python sidecar) unpacks and binds
+         its local port. The Rust shell swaps this view for the app once the server is ready, or calls
+         window.__onServerFailed() if it never comes up — so the user never sees a blank window. -->
+    <div class="spinner" id="sp"></div>
+    <div class="title" id="title">Starting Photo Cherrypick…</div>
+    <div class="hint" id="hint"></div>
+    <div class="retry" id="retry">
+      <button class="btn" id="retryBtn">Retry</button>
+    </div>
+    <script>
+      var hint = document.getElementById("hint");
+      // First launch (and the launch right after an update) re-extracts the ~200 MB ML runtime, which
+      // can take ~30-60s — reassure the user so the wait doesn't read as a hang.
+      setTimeout(function () {
+        if (hint.textContent === "") {
+          hint.textContent = "First launch unpacks the photo engine — this can take up to a minute…";
+        }
+      }, 12000);
+
+      var appUrl = "http://127.0.0.1:8756/?v=" + (window.__APP_VERSION__ || "");
+      document.getElementById("retryBtn").addEventListener("click", function () {
+        window.location.href = appUrl;
+      });
+
+      // Called from Rust if the sidecar never bound within the startup timeout.
+      window.__onServerFailed = function () {
+        document.getElementById("sp").style.display = "none";
+        document.getElementById("title").textContent = "Couldn’t start the photo engine";
+        hint.textContent = "Try reopening Photo Cherrypick. If it keeps happening, restart your Mac.";
+        document.getElementById("retry").style.display = "block";
+      };
+    </script>
+  </body>
+</html>
