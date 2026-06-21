@@ -108,3 +108,13 @@ def test_make_thumbnail_bounds(tmp_path):
     thumb = rp.make_thumbnail(img, max_side=256)
     assert max(thumb.size) <= 256
     assert img.size == (2000, 1000)  # original copy untouched
+
+
+def test_raw_paths_degrade_gracefully_when_rawpy_unavailable(tmp_path, monkeypatch):
+    """If rawpy/libraw isn't importable (not bundled), the RAW code paths return None instead of
+    crashing — graceful degradation (#74)."""
+    monkeypatch.setitem(sys.modules, "rawpy", None)  # makes `import rawpy` raise ImportError
+    raw = tmp_path / "shot.cr3"
+    raw.write_bytes(b"\x00not a real raw\x00")
+    assert rp.raw_exif(raw) is None
+    assert rp.load_rgb(raw) is None  # embedded-preview + full-decode both unavailable -> None

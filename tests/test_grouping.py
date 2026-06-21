@@ -84,3 +84,35 @@ def test_scene_duplicates_merge_not_fragment():
     recs = [{"id": f"d{i}", "emb": dup, "ctime": float(i), "overall": 0.5} for i in range(4)]
     groups = build_scene_groups(recs, sim_threshold=0.55)
     assert len(groups) == 1 and len(groups[0]) == 4  # all four land in one scene
+
+
+def test_burst_grouping_partitions_every_photo():
+    """Property: build_groups assigns every input to exactly one group across many random burst
+    layouts — no photo lost or duplicated."""
+    rng = np.random.default_rng(0)
+    for _ in range(40):
+        n = int(rng.integers(1, 12))
+        recs = [
+            make_meta(name=f"{i}.jpg", seed=int(rng.integers(0, 10_000)),
+                      ctime=float(rng.integers(0, 20_000)))
+            for i in range(n)
+        ]
+        groups = build_groups(recs, compute_refs(recs))
+        members = sorted(r["name"] for g in groups for r in g)
+        assert members == sorted(r["name"] for r in recs)        # exact partition
+        assert all(len(g) >= 1 for g in groups) and 1 <= len(groups) <= n
+
+
+def test_scene_grouping_partitions_every_keeper():
+    """Property: build_scene_groups also partitions — every keeper lands in exactly one scene."""
+    rng = np.random.default_rng(1)
+    for _ in range(40):
+        n = int(rng.integers(1, 12))
+        recs = [
+            {"id": f"p{i}", "emb": _unit_emb(int(rng.integers(0, 10_000))),
+             "ctime": float(rng.integers(0, 20_000)), "overall": float(rng.random())}
+            for i in range(n)
+        ]
+        groups = build_scene_groups(recs, sim_threshold=0.55)
+        ids = sorted(r["id"] for g in groups for r in g)
+        assert ids == sorted(r["id"] for r in recs) and 1 <= len(groups) <= n
