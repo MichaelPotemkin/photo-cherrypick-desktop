@@ -78,7 +78,7 @@ export default function CountsHeader({
           >
             ←
           </button>
-          <div>
+          <div className="title-block">
             {editing ? (
               <input
                 className="title-edit"
@@ -98,7 +98,9 @@ export default function CountsHeader({
               />
             ) : (
               <div className="title-line">
-                {title}
+                <span className="title-text" title={title}>
+                  {title}
+                </span>
                 <button
                   className="btn btn-ghost rename-btn"
                   onClick={() => setEditing(true)}

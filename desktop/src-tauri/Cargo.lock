@@ -2547,7 +2547,7 @@ dependencies = [
 
 [[package]]
 name = "photo-cherrypick-desktop"
-version = "1.0.14"
+version = "1.0.15"
 dependencies = [
  "serde_json",
  "tauri",

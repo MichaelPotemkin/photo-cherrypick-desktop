@@ -405,34 +405,60 @@ body {
   backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--border);
 }
+/* Fixed two-row grid so nothing reflows with the session-name length: the title + action cluster sit on
+   row 1, the count pills on row 2, in fixed cells. The title column is the only flexible track
+   (minmax(0,1fr)) and absorbs all name-length variation by truncating — the pills and every action button
+   stay in exactly the same place no matter how short or long the name is. */
 .counts-header-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title actions"
+    "pills pills";
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  column-gap: 16px;
+  row-gap: 10px;
   padding: 10px 16px;
 }
 .counts-title {
+  grid-area: title;
   display: flex;
   align-items: center;
   gap: 10px;
+  /* min-width:0 is what lets the title ellipsis below actually kick in (grid items, like flex items,
+     default to min-width:auto which would refuse to shrink below the name's content width). */
+  min-width: 0;
 }
 .home-btn {
   font-size: 18px;
   line-height: 1;
   padding: 4px 10px;
+  flex: 0 0 auto;
+}
+/* the name + subtitle stack; must be shrinkable for the title ellipsis to engage */
+.title-block {
+  min-width: 0;
 }
 .title-line {
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+/* truncate a long session name with an ellipsis instead of letting it overflow / wrap the header */
+.title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .rename-btn {
   font-size: 12px;
   line-height: 1;
   padding: 2px 6px;
   opacity: 0.5;
+  flex: 0 0 auto;
 }
 .rename-btn:hover {
   opacity: 1;
@@ -449,10 +475,11 @@ body {
   min-width: 220px;
 }
 .pills {
+  grid-area: pills;
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
-  flex: 1;
+  /* fixed on row 2; never wrap into a vertical column. */
+  flex-wrap: nowrap;
 }
 .pill {
   background: var(--bg-elev2);
@@ -475,9 +502,11 @@ body {
   color: #e7a3a3;
 }
 .header-actions {
+  grid-area: actions;
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  /* fixed cluster top-right; never wraps — the grid keeps it in one place regardless of name length. */
+  flex-wrap: nowrap;
 }
 
 /* Segmented Burst/Scene grouping-mode toggle. No overflow:hidden (it would clip the segments'
