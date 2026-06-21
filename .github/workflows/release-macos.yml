@@ -155,3 +155,24 @@ jobs:
             itself in place**.
 
             > Requires Apple Silicon (M-series) and macOS 11+.
+
+      # --- itch.io upload (optional) -----------------------------------------
+      # Publish the .dmg to itch.io via butler, IF a BUTLER_API_KEY secret is set
+      # (create one at itch.io/user/settings/api-keys → repo Settings → Secrets → Actions). When the
+      # secret is absent this is a clean no-op, so the GitHub release still succeeds. This integrates
+      # the previously-manual itch upload into the release pipeline (#62).
+      - name: Publish to itch.io (butler)
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then
+            echo "BUTLER_API_KEY not set — skipping itch.io upload (add the secret to enable)."
+            exit 0
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          dmg=$(ls desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg | head -1)
+          echo "Pushing $dmg to michaelpotemkin/photo-cherrypick:osx as $version"
+          curl -sL -o "$RUNNER_TEMP/butler.zip" "https://broth.itch.zone/butler/darwin-amd64/LATEST/archive/default"
+          unzip -oq "$RUNNER_TEMP/butler.zip" -d "$RUNNER_TEMP/butler"
+          chmod +x "$RUNNER_TEMP/butler/butler"
+          "$RUNNER_TEMP/butler/butler" push "$dmg" michaelpotemkin/photo-cherrypick:osx --userversion "$version"
