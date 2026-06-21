@@ -20,7 +20,9 @@ frontend/dist/
 # tauri
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
-desktop/src-tauri/bin/
+# the onedir sidecar resource (cull-server exe + _internal/) — a ~200 MB build artifact staged at
+# release/CI time, never committed
+desktop/src-tauri/resources/cull-server/
 # PyInstaller freeze output (the frozen sidecar; produced at release time)
 /build/
 /dist/

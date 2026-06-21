@@ -33,12 +33,14 @@ jobs:
           workspaces: desktop/src-tauri
       - name: Stub build inputs
         # clippy compiles the crate, so tauri-build / generate_context! validates two paths that are
-        # gitignored (absent in a fresh checkout): the externalBin sidecar and frontendDist. Neither is
-        # bundled or run here — placeholders just let the macro expand.
+        # gitignored (absent in a fresh checkout): the bundled-resource sidecar dir and frontendDist.
+        # Neither is bundled or run here — placeholders just let the macro expand / resource validation
+        # pass. The sidecar is now an onedir RESOURCE directory (not a single externalBin file), so stub
+        # resources/cull-server/ with a placeholder exe.
         run: |
-          mkdir -p bin
-          printf '#!/bin/sh\n' > bin/cull-server-aarch64-apple-darwin
-          chmod +x bin/cull-server-aarch64-apple-darwin
+          mkdir -p resources/cull-server
+          printf '#!/bin/sh\n' > resources/cull-server/cull-server
+          chmod +x resources/cull-server/cull-server
           mkdir -p ../../frontend/dist
           echo '<!doctype html><title>stub</title>' > ../../frontend/dist/index.html
       - name: Format (rustfmt)

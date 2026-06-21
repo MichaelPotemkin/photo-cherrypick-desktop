@@ -7,8 +7,8 @@ name: release-macos
 # Pipeline on the macos-14 (arm64) runner:
 #   1. assert the tag matches tauri.conf.json's version AND the updater signing secret is set
 #   2. build the SPA (frontend/dist) FIRST — the frozen sidecar bundles + serves it
-#   3. freeze the Python FastAPI sidecar with PyInstaller (incl. frontend/dist) ->
-#      desktop/src-tauri/bin/cull-server-aarch64-apple-darwin
+#   3. freeze the Python FastAPI sidecar with PyInstaller as an ONEDIR tree (incl. frontend/dist) ->
+#      desktop/src-tauri/resources/cull-server/ (shipped as a Tauri bundle resource)
 #   4. build the Tauri app with the official tauri-apps/tauri-action, which creates the GitHub
 #      Release for the tag and (updater configured + signing secrets present) signs + uploads the
 #      updater artifacts (.app.tar.gz + .sig) and latest.json alongside the .dmg.
@@ -86,17 +86,24 @@ jobs:
           # PyInstaller is pinned in requirements.txt too — single source so CI + local freezes match.
           pip install -r requirements.txt
 
-      - name: Freeze the sidecar (PyInstaller)
+      - name: Freeze the sidecar (PyInstaller, ONEDIR)
         run: |
           # Repo root: the spec resolves REPO_ROOT from cwd and bundles server/desktop_core/pipeline +
-          # torch/open_clip/cv2/rawpy binaries+data + frontend/dist (built above).
+          # torch/open_clip/cv2/rawpy binaries+data + frontend/dist (built above). ONEDIR output is a
+          # DIRECTORY dist/cull-server/ (cull-server exe + _internal/ siblings) — the runtime ships
+          # pre-extracted, so there's no ~30s per-launch unpack (issue #93).
           pyinstaller --noconfirm desktop/cull-server.spec
-          # Tauri's externalBin requires the binary renamed with the Rust target triple.
-          mkdir -p desktop/src-tauri/bin
-          cp dist/cull-server desktop/src-tauri/bin/cull-server-aarch64-apple-darwin
-          chmod +x desktop/src-tauri/bin/cull-server-aarch64-apple-darwin
-          # Ad-hoc sign the frozen sidecar so the nested Mach-O has a valid signature on arm64.
-          codesign --force --sign - desktop/src-tauri/bin/cull-server-aarch64-apple-darwin
+          # Tauri RESOURCES carry a whole directory tree (externalBin is single-file only). Copy the
+          # entire onedir into the resource source dir, preserving _internal/ and the executable bit.
+          rm -rf desktop/src-tauri/resources/cull-server
+          mkdir -p desktop/src-tauri/resources
+          cp -R dist/cull-server desktop/src-tauri/resources/cull-server
+          chmod +x desktop/src-tauri/resources/cull-server/cull-server
+          # Ad-hoc sign every nested Mach-O on arm64 so the loader doesn't reject unsigned dylibs, and
+          # to minimise the macOS first-launch scan. (Signing the directory itself is a no-op.)
+          find desktop/src-tauri/resources/cull-server -type f \( -name '*.dylib' -o -name '*.so' \) \
+            -exec codesign --force --sign - {} +
+          codesign --force --sign - desktop/src-tauri/resources/cull-server/cull-server
 
       # --- Rust / Tauri -------------------------------------------------------
       - name: Set up Rust (stable, aarch64-apple-darwin)
@@ -142,8 +149,9 @@ jobs:
             - if macOS only shows a "Done" button (Sequoia and later): open
               **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**.
 
-            The app takes care of the rest itself. The first launch is slow (~30–60s) while it unpacks the
-            bundled engine and needs internet once to download the model weights; after that it's fast and
-            **updates itself in place**.
+            The app takes care of the rest itself. The very first launch after install/update takes a
+            little while (macOS scans the freshly-written files once) and needs internet once to download
+            the model weights; every launch after that opens in a couple of seconds, and it **updates
+            itself in place**.
 
             > Requires Apple Silicon (M-series) and macOS 11+.
