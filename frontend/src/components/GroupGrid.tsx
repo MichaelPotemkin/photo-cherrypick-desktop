@@ -1,5 +1,6 @@
 import type { DecisionAction, Group, Photo, ViewMode } from "../api";
 import { useI18n } from "../i18n";
+import { buildGroupLabel } from "../lib/groupLabel";
 import PhotoCard from "./PhotoCard";
 
 interface Props {
@@ -22,13 +23,6 @@ export default function GroupGrid({
 }: Props) {
   const { t } = useI18n();
 
-  // The group label is rebuilt client-side (rather than using the backend's English string) so it
-  // localizes: burst vs scene wording, singular vs multi.
-  function groupLabel(n: number): string {
-    if (mode === "scene") return n > 1 ? t("label_scene", { n }) : t("label_unique");
-    return n > 1 ? t("label_burst_pick", { n }) : t("label_single");
-  }
-
   if (groups.length === 0) {
     return <div className="empty-state muted">{t("empty_hidden")}</div>;
   }
@@ -38,7 +32,7 @@ export default function GroupGrid({
       {groups.map((group) => (
         <section className="group" key={group.idx}>
           <h3 className="group-header">
-            {t("group")} {group.idx + 1} — {groupLabel(group.photos.length)}{" "}
+            {t("group")} {group.idx + 1} — {buildGroupLabel(t, mode, group.photos.length)}{" "}
             <span className="muted small">{group.when}</span>
             {group.close_call && (
               <span className="close-call-badge" data-tip={t("close_call_title")}>
