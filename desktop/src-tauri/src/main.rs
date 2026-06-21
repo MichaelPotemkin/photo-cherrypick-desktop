@@ -197,9 +197,28 @@ fn spawn_update_check(handle: tauri::AppHandle, cache: UpdateCache) {
                         eprintln!("[updater] newest version already staged; awaiting relaunch")
                     }
                     Ok(None) => eprintln!("[updater] up to date"),
-                    Err(e) => eprintln!("[updater] check failed (continuing): {e}"),
+                    Err(e) => {
+                        // surface check failures (offline, unreachable endpoint, bad signature) the
+                        // same way as download failures — logged AND emitted to the SPA — instead of
+                        // only printing to stderr.
+                        eprintln!("[updater] check failed (continuing): {e}");
+                        emit_state(
+                            &handle,
+                            &cache,
+                            "update-error",
+                            serde_json::json!({ "message": e.to_string() }),
+                        );
+                    }
                 },
-                Err(e) => eprintln!("[updater] init failed: {e}"),
+                Err(e) => {
+                    eprintln!("[updater] init failed: {e}");
+                    emit_state(
+                        &handle,
+                        &cache,
+                        "update-error",
+                        serde_json::json!({ "message": e.to_string() }),
+                    );
+                }
             }
             tokio::time::sleep(CHECK_INTERVAL).await;
         }
@@ -247,14 +266,21 @@ fn main() {
             //     downloaded unsigned build isn't blocked, then kill any orphaned sidecar from a previous
             //     run before we bind our port (see fn docs).
             dequarantine_sidecar(&exe_dir);
-            kill_stale_sidecars(PORT);
+
+            // The loopback port the sidecar binds; overridable via CULL_PORT (testing / relocation),
+            // defaulting to PORT. Threaded through everything below so the override is honored.
+            let port: u16 = std::env::var("CULL_PORT")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(PORT);
+            kill_stale_sidecars(port);
 
             // 1. spawn the packaged local server (single-user, binds to loopback only). std::process
             //    directly rather than the shell plugin: the path is a dynamic per-install resource path
             //    (can't be statically scoped), and this gives us a plain Child to kill on exit. Forward
             //    the sidecar's stderr with the existing "[cull-server]" prefix via a reader thread.
             let mut child = std::process::Command::new(&exe)
-                .args(["--host", "127.0.0.1", "--port", &PORT.to_string()])
+                .args(["--host", "127.0.0.1", "--port", &port.to_string()])
                 .current_dir(&exe_dir)
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
@@ -329,8 +355,8 @@ fn main() {
             //    so the SPA's localStorage (e.g. language) survives. If the server never comes up, show
             //    a retry state instead of a blank window.
             std::thread::spawn(move || {
-                if wait_for_server(PORT) {
-                    let target = format!("http://127.0.0.1:{PORT}/?v={version}");
+                if wait_for_server(port) {
+                    let target = format!("http://127.0.0.1:{port}/?v={version}");
                     let _ = window.eval(format!("window.location.replace({target:?})"));
                     #[cfg(desktop)]
                     spawn_update_check(updater_handle, update_cache);

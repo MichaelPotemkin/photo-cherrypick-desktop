@@ -41,11 +41,13 @@ export function useUpdater(): UpdaterState & { relaunch: () => void } {
         listenEvent<{ version: string }>("update-ready", (p) =>
           setState((s) => ({ ...s, stage: "ready", percent: 100, newVersion: p.version })),
         ),
-        listenEvent<{ message: string }>("update-error", () =>
-          // fall back to just showing the version label; a failed background update isn't worth a
-          // disruptive in-app error — the next launch retries.
-          setState((s) => ({ ...s, stage: "idle", percent: null })),
-        ),
+        listenEvent<{ message: string }>("update-error", (p) => {
+          // surface a small non-disruptive note instead of silently swallowing the failure (#47);
+          // the full reason is in the shell log. Cleared when a later check finds an update or on
+          // relaunch — a failed background update never blocks using the app.
+          console.warn("[updater] update error:", p.message);
+          setState((s) => ({ ...s, stage: "error", percent: null }));
+        }),
       ]);
 
       if (cancelled) {
