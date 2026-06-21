@@ -88,6 +88,26 @@ def test_full_flow(client, src_folder):
     assert client.get(f"/api/sessions/{sid}").status_code == 404
 
 
+def test_error_paths(client, src_folder):
+    """Error/edge paths that the happy-path tests don't cover (#60): unknown ids across every
+    endpoint that takes one, a bad image size, and a malformed create payload."""
+    # unknown session across read + both mutating endpoints
+    assert client.get("/api/sessions/nope").status_code == 404
+    assert client.delete("/api/sessions/nope").status_code == 404
+    assert client.patch("/api/sessions/nope", json={"title": "x"}).status_code == 404
+    assert client.get("/api/sessions/nope/groups").status_code == 404
+    assert client.get("/api/sessions/nope/export?format=zip").status_code == 404
+
+    # real photo: unknown photo id and an unknown size both 404 (not 500)
+    sid = client.post("/api/sessions", json={"path": src_folder}).json()["id"]
+    pid = client.get(f"/api/sessions/{sid}/groups").json()["groups"][0]["photos"][0]["id"]
+    assert client.get("/api/img/deadbeef/preview").status_code == 404
+    assert client.get(f"/api/img/{pid}/ginormous").status_code == 404
+
+    # malformed create payload -> 422 validation error, not a 500
+    assert client.post("/api/sessions", json={}).status_code == 422
+
+
 def test_export_nothing_is_400(client, src_folder):
     sid = client.post("/api/sessions", json={"path": src_folder}).json()["id"]
     assert client.get(f"/api/sessions/{sid}/export?format=zip").status_code == 400  # no picks
