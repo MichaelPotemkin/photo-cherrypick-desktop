@@ -15,7 +15,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use tauri::{Emitter, Listener, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 #[cfg(desktop)]
@@ -88,75 +88,97 @@ fn spawn_update_check(handle: tauri::AppHandle, cache: UpdateCache) {
         let _ = handle.emit(name, payload);
     }
 
+    // Check at startup AND on a timer: a long-running session (a photographer may leave the app open
+    // for hours) would otherwise never see a release published after launch, since the check ran once
+    // when the then-current version was latest. `staged` avoids re-downloading a version already fetched
+    // this session on every tick; a failed download simply retries on the next tick.
+    const CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60); // hourly
+
     tauri::async_runtime::spawn(async move {
-        let updater = match handle.updater() {
-            Ok(u) => u,
-            Err(e) => {
-                eprintln!("[updater] init failed: {e}");
-                return;
-            }
-        };
-        match updater.check().await {
-            Ok(Some(update)) => {
-                let version = update.version.clone();
-                eprintln!("[updater] update {version} available, downloading in background");
-                emit_state(
-                    &handle,
-                    &cache,
-                    "update-available",
-                    serde_json::json!({ "version": version }),
-                );
-
-                let downloaded = Arc::new(AtomicU64::new(0));
-                let progress_handle = handle.clone();
-                let progress_cache = cache.clone();
-                let progress_total = downloaded.clone();
-                let result = update
-                    .download_and_install(
-                        move |chunk_len, content_len| {
-                            let total = progress_total
-                                .fetch_add(chunk_len as u64, Ordering::Relaxed)
-                                + chunk_len as u64;
-                            emit_state(
-                                &progress_handle,
-                                &progress_cache,
-                                "update-progress",
-                                serde_json::json!({ "downloaded": total, "total": content_len }),
-                            );
-                        },
-                        || {},
-                    )
-                    .await;
-
-                match result {
-                    Ok(_) => {
-                        eprintln!("[updater] {version} downloaded; ready to relaunch");
+        let mut staged: Option<String> = None;
+        loop {
+            match handle.updater() {
+                Ok(updater) => match updater.check().await {
+                    Ok(Some(update)) if staged.as_deref() != Some(update.version.as_str()) => {
+                        let version = update.version.clone();
+                        eprintln!(
+                            "[updater] update {version} available, downloading in background"
+                        );
                         emit_state(
                             &handle,
                             &cache,
-                            "update-ready",
+                            "update-available",
                             serde_json::json!({ "version": version }),
                         );
+
+                        let downloaded = Arc::new(AtomicU64::new(0));
+                        let progress_handle = handle.clone();
+                        let progress_cache = cache.clone();
+                        let progress_total = downloaded.clone();
+                        let result = update
+                            .download_and_install(
+                                move |chunk_len, content_len| {
+                                    let total = progress_total
+                                        .fetch_add(chunk_len as u64, Ordering::Relaxed)
+                                        + chunk_len as u64;
+                                    emit_state(
+                                        &progress_handle,
+                                        &progress_cache,
+                                        "update-progress",
+                                        serde_json::json!({ "downloaded": total, "total": content_len }),
+                                    );
+                                },
+                                || {},
+                            )
+                            .await;
+
+                        match result {
+                            Ok(_) => {
+                                eprintln!("[updater] {version} downloaded; ready to relaunch");
+                                staged = Some(version.clone());
+                                emit_state(
+                                    &handle,
+                                    &cache,
+                                    "update-ready",
+                                    serde_json::json!({ "version": version }),
+                                );
+                            }
+                            Err(e) => {
+                                eprintln!("[updater] install failed: {e}");
+                                emit_state(
+                                    &handle,
+                                    &cache,
+                                    "update-error",
+                                    serde_json::json!({ "message": e.to_string() }),
+                                );
+                            }
+                        }
                     }
-                    Err(e) => {
-                        eprintln!("[updater] install failed: {e}");
-                        emit_state(
-                            &handle,
-                            &cache,
-                            "update-error",
-                            serde_json::json!({ "message": e.to_string() }),
-                        );
+                    Ok(Some(_)) => {
+                        eprintln!("[updater] newest version already staged; awaiting relaunch")
                     }
-                }
+                    Ok(None) => eprintln!("[updater] up to date"),
+                    Err(e) => eprintln!("[updater] check failed (continuing): {e}"),
+                },
+                Err(e) => eprintln!("[updater] init failed: {e}"),
             }
-            Ok(None) => eprintln!("[updater] up to date"),
-            Err(e) => eprintln!("[updater] check failed (continuing): {e}"),
+            tokio::time::sleep(CHECK_INTERVAL).await;
         }
     });
 }
 
 fn main() {
     tauri::Builder::default()
+        // MUST be the first plugin: a second launch (a stray/older copy, e.g. left over after an
+        // update) would otherwise bind nothing — the running instance already holds the loopback port,
+        // so the new window loads the OLD instance's SPA and shows a stale UI with a mismatched version.
+        // Instead, focus the window that's already open and let the second process exit.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
