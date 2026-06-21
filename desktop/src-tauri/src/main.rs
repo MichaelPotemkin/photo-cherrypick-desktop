@@ -42,18 +42,23 @@ fn dequarantine_sidecar() {
 #[cfg(not(target_os = "macos"))]
 fn dequarantine_sidecar() {}
 
-// Block until the sidecar is accepting TCP connections, or give up after ~90s. A frozen onefile
-// re-extracts and imports torch/opencv on first launch (many seconds); opening the webview before
-// the server binds would show a connection-refused / blank page.
-fn wait_for_server(port: u16) {
+// Poll until the sidecar is accepting TCP connections; return whether it came up. A frozen onefile
+// re-extracts and imports torch/opencv on launch (tens of seconds, longer when an update download is
+// competing for I/O), so the budget is generous and overridable via CULL_STARTUP_TIMEOUT_SECS.
+fn wait_for_server(port: u16) -> bool {
     let addr: SocketAddr = ([127, 0, 0, 1], port).into();
-    for _ in 0..180 {
+    let secs: u64 = std::env::var("CULL_STARTUP_TIMEOUT_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(180);
+    for _ in 0..(secs * 2).max(1) {
         if TcpStream::connect_timeout(&addr, Duration::from_millis(500)).is_ok() {
-            return;
+            return true;
         }
         std::thread::sleep(Duration::from_millis(500));
     }
-    eprintln!("[shell] sidecar not ready after ~90s; opening the window anyway");
+    eprintln!("[shell] sidecar not ready after {secs}s");
+    false
 }
 
 // Latest update event, cached so a freshly-loaded SPA can be replayed the current state on its
@@ -203,17 +208,28 @@ fn main() {
                 }
             });
 
-            // 2. fire-and-forget auto-update check (no-op off-desktop / on any error), and listen for
-            //    the SPA's in-app "Update ready" button (the `update-relaunch` event) to apply a
-            //    staged update now. restart() relaunches into the freshly-installed bundle.
+            // 2. open the window IMMEDIATELY on a bundled "Starting…" splash. setup() must return
+            //    promptly for the event loop to render it, so the wait-for-server-then-swap runs on a
+            //    background thread below — the user sees a spinner, never a blank window, during the
+            //    (slow) first-launch sidecar extraction.
+            let version = app.package_info().version.to_string();
+            let window =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("splash.html".into()))
+                    .title("Photo Cherrypick")
+                    .inner_size(1280.0, 860.0)
+                    .initialization_script(format!("window.__APP_VERSION__ = {version:?};"))
+                    .build()?;
+
+            // 3. auto-update plumbing: replay the latest state to the SPA on `spa-ready`, and apply a
+            //    staged update when the in-app button emits `update-relaunch`. The check itself is
+            //    started only AFTER the server is up (below), so a background download can't starve the
+            //    first-launch extraction.
+            #[cfg(desktop)]
+            let updater_handle = app.handle().clone();
+            #[cfg(desktop)]
+            let update_cache: UpdateCache = std::sync::Arc::new(std::sync::Mutex::new(None));
             #[cfg(desktop)]
             {
-                let update_cache: UpdateCache = std::sync::Arc::new(std::sync::Mutex::new(None));
-                spawn_update_check(app.handle().clone(), update_cache.clone());
-
-                // The SPA emits `spa-ready` once its listeners are registered; replay the latest
-                // update state to it so a download that finished before the webview existed still
-                // surfaces the in-app progress / "Update ready" button this session.
                 let replay_handle = app.handle().clone();
                 let replay_cache = update_cache.clone();
                 app.handle().listen_any("spa-ready", move |_event| {
@@ -228,21 +244,23 @@ fn main() {
                 });
             }
 
-            // 3. wait for the sidecar, then open the window onto it (it serves the SPA + API).
-            //    The `?v=<version>` cache-buster is load-bearing: the WKWebView persists its cache
-            //    across app versions and does NOT reliably revalidate the top-level document even with
-            //    `Cache-Control: no-store` (server/app.py), so after an auto-update it would serve the
-            //    cached old index.html — pointing at the previous hashed bundle — and the new UI would
-            //    never appear. A version-stamped URL is one WKWebView has never cached, forcing a fresh
-            //    document (which then references the new content-hashed assets). Same origin, so the
-            //    SPA's localStorage — e.g. the language choice — is preserved across versions.
-            let version = app.package_info().version.to_string();
-            wait_for_server(PORT);
-            let url = format!("http://127.0.0.1:{PORT}/?v={version}");
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url.parse().unwrap()))
-                .title("Photo Cherrypick")
-                .inner_size(1280.0, 860.0)
-                .build()?;
+            // 4. wait for the sidecar off the main thread, then swap the splash for the real app. The
+            //    `?v=<version>` cache-buster is load-bearing: the WKWebView persists its cache across
+            //    versions and won't reliably revalidate index.html even with no-store, so a version-
+            //    stamped URL (one it has never cached) forces the fresh post-update bundle. Same origin,
+            //    so the SPA's localStorage (e.g. language) survives. If the server never comes up, show
+            //    a retry state instead of a blank window.
+            std::thread::spawn(move || {
+                if wait_for_server(PORT) {
+                    let target = format!("http://127.0.0.1:{PORT}/?v={version}");
+                    let _ = window.eval(format!("window.location.replace({target:?})"));
+                    #[cfg(desktop)]
+                    spawn_update_check(updater_handle, update_cache);
+                } else {
+                    let _ = window.eval("window.__onServerFailed && window.__onServerFailed()");
+                }
+            });
+
             Ok(())
         })
         .run(tauri::generate_context!())
