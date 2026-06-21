@@ -1141,6 +1141,23 @@ body {
 .error-screen .btn {
   align-self: center;
 }
+.error-title {
+  margin: 0;
+  font-size: 17px;
+}
+/* the raw error message, demoted: legible for debugging but visually secondary to the headline */
+.error-detail {
+  max-width: 40rem;
+  word-break: break-word;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  opacity: 0.8;
+}
+.error-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
 
 /* recent-sessions list on the home screen */
 .session-list { margin-top: 22px; text-align: left; }

@@ -121,7 +121,13 @@ export default function SessionInput({ onOpen }: Props) {
         </form>
         {mutation.isError && (
           <p className="error">
-            {(mutation.error as Error)?.message ?? t("failed_create")}
+            {t("failed_create")}
+            {(mutation.error as Error)?.message ? (
+              <span className="error-detail muted small">
+                {" — "}
+                {(mutation.error as Error).message}
+              </span>
+            ) : null}
           </p>
         )}
 

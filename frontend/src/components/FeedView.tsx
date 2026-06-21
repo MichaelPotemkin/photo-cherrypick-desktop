@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getFeed, type FeedPhoto } from "../api";
 import { useI18n } from "../i18n";
+import ErrorState from "./ErrorState";
 
 interface Props {
   sessionId: string;
@@ -18,9 +19,11 @@ export default function FeedView({ sessionId }: Props) {
   if (query.isLoading) return <div className="centered muted">{t("feed_planning")}</div>;
   if (query.isError)
     return (
-      <div className="centered error">
-        {(query.error as Error)?.message ?? t("feed_failed")}
-      </div>
+      <ErrorState
+        title={t("feed_failed")}
+        detail={(query.error as Error)?.message}
+        onRetry={() => query.refetch()}
+      />
     );
 
   const photos = query.data?.photos ?? [];
