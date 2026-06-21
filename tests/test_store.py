@@ -2,6 +2,7 @@ import sqlite3
 import threading
 
 import numpy as np
+import pytest
 
 from desktop_core.store import CullStore
 from tests.conftest import make_meta
@@ -61,6 +62,35 @@ def test_accept_suggestions_favorites_only_undecided(tmp_store):
     assert states[p2] == "delete"                   # manual decision NOT clobbered
     assert states.get(p3, "none") == "none"         # non-suggested untouched
     assert tmp_store.accept_suggestions(sid) == 0   # idempotent — nothing left undecided
+
+
+def test_accept_suggestions_is_atomic_on_failure(tmp_store, monkeypatch):
+    """If a write fails part-way through accept_suggestions, the whole batch rolls back — not even
+    the favorites that already succeeded are committed (regression guard for the transaction fix)."""
+    sid = tmp_store.create_session("/x")
+    common = dict(emb=None, meta={}, axes={}, cats={}, reasons=[], in_group_order=0)
+    for i in range(3):
+        p = tmp_store.add_photo(sid, f"{i}.jpg", f"/x/{i}.jpg", False)
+        tmp_store.save_analysis(p, overall=0.8, group_idx=i, suggested=True, **common)
+
+    # blow up on the SECOND insert, after the first has already executed inside the transaction
+    real = tmp_store._insert_decision
+    calls = {"n": 0}
+
+    def boom(s, pid, action):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise sqlite3.OperationalError("boom")
+        return real(s, pid, action)
+
+    monkeypatch.setattr(tmp_store, "_insert_decision", boom)
+
+    with pytest.raises(sqlite3.OperationalError):
+        tmp_store.accept_suggestions(sid)
+
+    # the `with self._conn:` block rolled the whole batch back — no partial favorites landed
+    assert tmp_store.current_states(sid) == {}
+    assert tmp_store.count_pending_suggestions(sid) == 3
 
 
 def test_count_pending_suggestions(tmp_store):
