@@ -10,7 +10,9 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import traceback
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -50,6 +52,10 @@ def _process(store: CullStore, sid: str, folder: str) -> None:
         items = scan_folder(folder)
         pipeline_runner.run_session(store, sid, items, CACHE_DIR / sid)
     except Exception as e:  # surface to the UI rather than dying silently
+        # the broad catch is deliberate (a background worker must report ANY failure, not crash the
+        # thread), but log the full stack so an unexpected bug is diagnosable — not just reduced to a
+        # one-line status string the user sees.
+        traceback.print_exc(file=sys.stderr)
         store.set_status(sid, "error", f"{type(e).__name__}: {e}")
 
 
@@ -61,7 +67,15 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     store = CullStore(data_dir / "cull.db")
     executor = ThreadPoolExecutor(max_workers=1)
-    app = FastAPI(title="Photo Cherrypick (desktop)")
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        yield
+        # graceful teardown: stop the analysis worker pool on shutdown so we don't leak a running
+        # thread (cancel anything still queued; don't block the exit on an in-flight analysis).
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    app = FastAPI(title="Photo Cherrypick (desktop)", lifespan=lifespan)
     # The packaged app serves the SPA same-origin (StaticFiles below), so CORS is only needed for
     # the dev SPA (vite) and the Tauri webview. A wildcard would let any website the user visits
     # drive/read this unauthenticated local API — scope it to known local origins instead.
