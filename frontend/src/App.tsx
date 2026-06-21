@@ -40,7 +40,10 @@ export default function App() {
       ) : (
         <SessionView sessionId={sessionId} onHome={goHome} />
       )}
-      <UpdateFooter />
+      {/* Version + auto-update UI lives on the welcome screen only — it's clutter inside a shoot.
+          The hook re-subscribes and replays the latest update state on remount (via `spa-ready`),
+          so anything that completed during a session re-surfaces when you return home. */}
+      {sessionId == null && <UpdateFooter />}
     </div>
   );
 }
