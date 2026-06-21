@@ -1,6 +1,6 @@
 [package]
 name = "photo-cherrypick-desktop"
-version = "1.0.8"
+version = "1.0.9"
 edition = "2021"
 description = "Local-first photo culling desktop app"
 
@@ -12,6 +12,11 @@ tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
+# Refuse to run a second copy: a stray/older instance otherwise grabs the loopback port and serves its
+# (stale) SPA into the new instance's window — a confusing version mismatch after an update.
+tauri-plugin-single-instance = "2"
+# Already in the tree via Tauri; surfaced directly for the periodic update re-check timer.
+tokio = { version = "1", features = ["time"] }
 # Required at the crate root: with the updater configured, tauri::generate_context!() expands to
 # code that references serde_json (else E0433: cannot find `serde_json` in the crate root).
 serde_json = "1"
