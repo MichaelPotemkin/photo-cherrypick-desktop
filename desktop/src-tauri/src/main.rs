@@ -1,8 +1,8 @@
 // Tauri v2 shell for Photo Cherrypick (desktop).
 //
-// Launches the bundled Python sidecar (the FastAPI server frozen with PyInstaller as
-// `bin/cull-server`) which serves the built SPA + the API on 127.0.0.1, WAITS until it is accepting
-// connections, then opens a webview onto it. The folder picker comes from tauri-plugin-dialog
+// Launches the bundled Python sidecar (the FastAPI server frozen with PyInstaller as an onedir tree
+// shipped in the app's Resources) which serves the built SPA + the API on 127.0.0.1, WAITS until it is
+// accepting connections, then opens a webview onto it. The folder picker comes from tauri-plugin-dialog
 // (exposed to the SPA via withGlobalTauri as window.__TAURI__.dialog.open).
 //
 // Auto-update: tauri-plugin-updater is registered and a best-effort check runs on startup
@@ -12,40 +12,38 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::io::{BufRead, BufReader};
 use std::net::{SocketAddr, TcpStream};
+use std::process::{Child, Stdio};
 use std::time::Duration;
 
+use tauri::path::BaseDirectory;
 use tauri::{Emitter, Listener, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
-use tauri_plugin_shell::process::{CommandChild, CommandEvent};
-use tauri_plugin_shell::ShellExt;
 #[cfg(desktop)]
 use tauri_plugin_updater::UpdaterExt;
 
 const PORT: u16 = 8756;
 
-// A freshly-downloaded unsigned build is quarantined; the nested `cull-server` sidecar inherits
-// com.apple.quarantine and macOS blocks the helper when the app spawns it. The MAIN app has already
-// been approved by the user (that's how we got here), so strip the quarantine flag off the bundled
-// sidecar before launching it — the user never has to touch a terminal. Best-effort: a no-op when
-// the attribute isn't present, and only compiled on macOS.
+// A freshly-downloaded unsigned build is quarantined; the bundled sidecar inherits com.apple.quarantine
+// and macOS blocks the helper when the app spawns it. The MAIN app has already been approved by the user
+// (that's how we got here), so strip the quarantine flag off the onedir sidecar tree before launching it
+// — the user never has to touch a terminal. RECURSIVE (-r): under onedir the exe AND every dylib it
+// dlopen()s under _internal/ are quarantined, and clearing only the exe would still let macOS block the
+// libraries. Best-effort: a no-op when the attribute is absent, and only compiled on macOS.
 #[cfg(target_os = "macos")]
-fn dequarantine_sidecar() {
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(sidecar) = exe.parent().map(|d| d.join("cull-server")) {
-            let _ = std::process::Command::new("/usr/bin/xattr")
-                .args(["-d", "com.apple.quarantine"])
-                .arg(&sidecar)
-                .status();
-        }
-    }
+fn dequarantine_sidecar(dir: &std::path::Path) {
+    let _ = std::process::Command::new("/usr/bin/xattr")
+        .args(["-dr", "com.apple.quarantine"])
+        .arg(dir)
+        .status();
 }
 #[cfg(not(target_os = "macos"))]
-fn dequarantine_sidecar() {}
+fn dequarantine_sidecar(_dir: &std::path::Path) {}
 
 // Managed handle to our spawned sidecar so we can terminate it when the app exits (see the RunEvent
 // handler in `main`). Without this the ~200 MB Python server can outlive the app and keep holding the
 // loopback port — orphaning onto it so the NEXT launch's webview connects to this stale server.
-struct SidecarChild(std::sync::Mutex<Option<CommandChild>>);
+struct SidecarChild(std::sync::Mutex<Option<Child>>);
 
 // Kill any cull-server already running BEFORE we spawn ours. tauri-plugin-single-instance guarantees
 // we're the only app instance, so any live cull-server is an orphan from a previous run (a crash,
@@ -71,9 +69,10 @@ fn kill_stale_sidecars(port: u16) {
 #[cfg(not(target_os = "macos"))]
 fn kill_stale_sidecars(_port: u16) {}
 
-// Poll until the sidecar is accepting TCP connections; return whether it came up. A frozen onefile
-// re-extracts and imports torch/opencv on launch (tens of seconds, longer when an update download is
-// competing for I/O), so the budget is generous and overridable via CULL_STARTUP_TIMEOUT_SECS.
+// Poll until the sidecar is accepting TCP connections; return whether it came up. The onedir sidecar
+// starts in ~2s once warm, but the FIRST launch after an install/update pays a one-time cost (cold disk
+// read of the ~200 MB runtime + macOS scanning the freshly-written dylibs), so the budget stays generous
+// and overridable via CULL_STARTUP_TIMEOUT_SECS.
 fn wait_for_server(port: u16) -> bool {
     let addr: SocketAddr = ([127, 0, 0, 1], port).into();
     let secs: u64 = std::env::var("CULL_STARTUP_TIMEOUT_SECS")
@@ -217,36 +216,61 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            // 0. clear the bundled sidecar's quarantine so macOS doesn't block the nested helper
-            //    on a freshly-downloaded unsigned build (no terminal step for the user).
-            dequarantine_sidecar();
+            // 0. resolve the onedir sidecar inside the app bundle's Resources (the `cull-server` exe
+            //    plus its `_internal/` sibling). Shipped as a Tauri RESOURCE, not externalBin (which is
+            //    single-file only) — onedir means the runtime is pre-extracted, so there's no ~30s
+            //    per-launch unpack. In a packaged .app this is Contents/Resources/resources/cull-server/.
+            let exe = app
+                .path()
+                .resolve("resources/cull-server/cull-server", BaseDirectory::Resource)?;
+            let exe_dir = exe.parent().map(|d| d.to_path_buf()).unwrap_or_default();
 
-            // 0b. kill any orphaned sidecar from a previous run before we bind our port (see fn doc) —
-            //     otherwise our webview would connect to its stale server and show an old SPA.
+            // 0a. ensure the exe is executable — a bundled-resource directory copy doesn't reliably
+            //     preserve the +x bit, and a non-executable sidecar fails to spawn (EACCES).
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = std::fs::metadata(&exe) {
+                    let mut perms = meta.permissions();
+                    perms.set_mode(perms.mode() | 0o755);
+                    let _ = std::fs::set_permissions(&exe, perms);
+                }
+            }
+
+            // 0b. clear quarantine over the whole onedir tree (exe + _internal/ dylibs) so a freshly
+            //     downloaded unsigned build isn't blocked, then kill any orphaned sidecar from a previous
+            //     run before we bind our port (see fn docs).
+            dequarantine_sidecar(&exe_dir);
             kill_stale_sidecars(PORT);
 
-            // 1. spawn the packaged local server (single-user, binds to loopback only)
-            let sidecar = app.shell().sidecar("cull-server")?.args([
-                "--host",
-                "127.0.0.1",
-                "--port",
-                &PORT.to_string(),
-            ]);
-            let (mut rx, child) = sidecar.spawn()?;
+            // 1. spawn the packaged local server (single-user, binds to loopback only). std::process
+            //    directly rather than the shell plugin: the path is a dynamic per-install resource path
+            //    (can't be statically scoped), and this gives us a plain Child to kill on exit. Forward
+            //    the sidecar's stderr with the existing "[cull-server]" prefix via a reader thread.
+            let mut child = std::process::Command::new(&exe)
+                .args(["--host", "127.0.0.1", "--port", &PORT.to_string()])
+                .current_dir(&exe_dir)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .spawn()?;
+            if let Some(stderr) = child.stderr.take() {
+                std::thread::spawn(move || {
+                    for line in BufReader::new(stderr).lines() {
+                        match line {
+                            Ok(l) => eprintln!("[cull-server] {l}"),
+                            Err(_) => break,
+                        }
+                    }
+                });
+            }
             // keep the child handle so we can kill it on exit (don't orphan it onto the port)
             app.manage(SidecarChild(std::sync::Mutex::new(Some(child))));
-            tauri::async_runtime::spawn(async move {
-                while let Some(event) = rx.recv().await {
-                    if let CommandEvent::Stderr(line) = event {
-                        eprintln!("[cull-server] {}", String::from_utf8_lossy(&line));
-                    }
-                }
-            });
 
             // 2. open the window IMMEDIATELY on a bundled "Starting…" splash. setup() must return
             //    promptly for the event loop to render it, so the wait-for-server-then-swap runs on a
-            //    background thread below — the user sees a spinner, never a blank window, during the
-            //    (slow) first-launch sidecar extraction.
+            //    background thread below — the user sees a spinner, never a blank window, during a slow
+            //    first launch (cold disk + macOS dylib scan on a freshly-installed/updated build).
             let version = app.package_info().version.to_string();
             let window =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("splash.html".into()))
@@ -257,8 +281,8 @@ fn main() {
 
             // 3. auto-update plumbing: replay the latest state to the SPA on `spa-ready`, and apply a
             //    staged update when the in-app button emits `update-relaunch`. The check itself is
-            //    started only AFTER the server is up (below), so a background download can't starve the
-            //    first-launch extraction.
+            //    started only AFTER the server is up (below), so a background download can't starve a
+            //    slow first-launch startup.
             #[cfg(desktop)]
             let updater_handle = app.handle().clone();
             #[cfg(desktop)]
@@ -306,8 +330,9 @@ fn main() {
             if matches!(event, RunEvent::ExitRequested { .. } | RunEvent::Exit) {
                 if let Some(state) = app_handle.try_state::<SidecarChild>() {
                     if let Ok(mut guard) = state.0.lock() {
-                        if let Some(child) = guard.take() {
+                        if let Some(mut child) = guard.take() {
                             let _ = child.kill();
+                            let _ = child.wait();
                         }
                     }
                 }

@@ -1,18 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec — freezes the FastAPI sidecar into a single binary named `cull-server`.
+"""PyInstaller spec — freezes the FastAPI sidecar into a pre-extracted directory named `cull-server`.
 
 Run from the REPO ROOT (not from desktop/):
 
     pyinstaller desktop/cull-server.spec
 
-Output:  dist/cull-server   (onefile, no console window suppression — it logs to stderr, which the
-Tauri shell forwards via CommandEvent::Stderr).
+Output:  dist/cull-server/   (ONEDIR: the `cull-server` exe + an `_internal/` sibling holding every dylib
+and data file. It logs to stderr, which the shell forwards. onedir — NOT onefile — so the ~200 MB runtime
+ships already unpacked and there is no per-launch extraction / ~30s cold-start wait, see issue #93.)
 
-Tauri's `externalBin` requires the binary renamed with the Rust target-triple suffix. After this
-runs, copy/rename it into place for the bundler, e.g. on Apple Silicon:
+The whole directory ships as a Tauri RESOURCE (bundle.resources), not externalBin (which is single-file
+only). After this runs, copy the directory into place for the bundler:
 
-    mkdir -p desktop/src-tauri/bin
-    cp dist/cull-server desktop/src-tauri/bin/cull-server-aarch64-apple-darwin
+    rm -rf desktop/src-tauri/resources/cull-server
+    mkdir -p desktop/src-tauri/resources
+    cp -R dist/cull-server desktop/src-tauri/resources/cull-server
 
 WHY EACH COLLECT EXISTS
 -----------------------
@@ -145,21 +147,33 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
-    name="cull-server",           # MUST be exactly this; Tauri appends the target-triple on copy
+    exclude_binaries=True,        # ONEDIR: binaries/zipfiles/datas are gathered by COLLECT below instead
+    #                               of inlined into a single self-extracting exe. This is the whole point:
+    #                               the runtime ships pre-extracted, so there is NO ~30s per-launch unpack.
+    name="cull-server",           # MUST be exactly this (the exe inside the onedir is launched by name)
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,                  # keep symbols; torch dylibs misbehave when stripped
     upx=False,                    # UPX corrupts torch/opencv dylibs — leave OFF
-    upx_exclude=[],
-    runtime_tmpdir=None,          # default per-run extraction under $TMPDIR (onefile)
     console=True,                 # logs to stderr; Tauri forwards it. No window: it's a sidecar.
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch="arm64",          # Apple Silicon only (matches the macos-14 CI runner)
     codesign_identity=None,       # UNSIGNED distribution by decision
     entitlements_file=None,
+)
+
+# ONEDIR output: dist/cull-server/ containing the `cull-server` exe plus an `_internal/` sibling with all
+# dylibs and data files (the embedded frontend/dist among them). The whole directory is shipped as a Tauri
+# RESOURCE (not externalBin, which is single-file only) and launched in place — no extraction at startup.
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name="cull-server",
 )
