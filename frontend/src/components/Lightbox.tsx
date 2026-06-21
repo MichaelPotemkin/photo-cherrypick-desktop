@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { DecisionAction, Group, ViewMode } from "../api";
 import { useI18n } from "../i18n";
 import { buildGroupLabel } from "../lib/groupLabel";
+import { LIGHTBOX_ZOOM } from "../constants";
 import { AxisGrid } from "./AxisBars";
 
 interface Props {
@@ -19,7 +20,6 @@ interface Props {
   onDecide: (action: DecisionAction) => void;
 }
 
-const ZOOM = 2.6; // magnification on hover — moderate, so it's easy to read detail
 
 export default function Lightbox({
   group,
@@ -167,7 +167,7 @@ export default function Lightbox({
               src={photo.preview_url}
               alt={photo.filename}
               draggable={false}
-              style={hover ? { transform: `scale(${ZOOM})`, transformOrigin: origin } : undefined}
+              style={hover ? { transform: `scale(${LIGHTBOX_ZOOM})`, transformOrigin: origin } : undefined}
             />
           </div>
 
