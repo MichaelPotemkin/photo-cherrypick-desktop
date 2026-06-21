@@ -19,6 +19,7 @@ from pipeline.group import build_groups
 from pipeline.score import axis_scores, compute_refs
 from pipeline.select import rank_burst
 
+from .constants import CLOSE_GAP
 from .ingest import FileItem
 from .raw_preview import load_rgb, make_thumbnail, raw_exif
 from .store import CullStore
@@ -28,11 +29,6 @@ _NON_META = {"emb", "id", "name", "camera", "path", "load_path"}
 
 PREVIEW_MAX = 1600
 THUMB_MAX = 480
-# in a multi-shot burst, if the top-2 picks are within this overall margin the choice is a
-# near-tie — flag it so the UI can tell the photographer "too close to call, you decide".
-# 0.05 calibrated on the audit shoot: picks below it are ~coin-flips vs the reference panel
-# (it more than halves confidently-wrong unflagged picks). See docs/SCORING-ITERATION-LOG.md.
-_CLOSE_GAP = 0.05
 
 
 def warmup() -> None:
@@ -124,9 +120,9 @@ def run_session(
         label = f"{len(g)} in burst — pick one" if len(g) > 1 else "single shot"
         when_ts = g[0].get("ctime")
         avg = sum(overalls) / len(overalls) if overalls else 0.0
-        # close call = multi-shot burst whose best two frames are within _CLOSE_GAP
+        # close call = multi-shot burst whose best two frames are within CLOSE_GAP
         top2 = sorted(overalls, reverse=True)[:2]
-        close = len(top2) == 2 and (top2[0] - top2[1]) < _CLOSE_GAP
+        close = len(top2) == 2 and (top2[0] - top2[1]) < CLOSE_GAP
         store.save_group(sid, gi, label, when_ts, avg, close_call=close)
 
     store.set_status(sid, "ready")

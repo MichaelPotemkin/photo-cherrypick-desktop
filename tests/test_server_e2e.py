@@ -63,8 +63,10 @@ def test_full_flow(client, src_folder):
     pid = photos[0]["id"]
     assert photos[0]["preview_url"] == f"/api/img/{pid}/preview"
 
-    # image serving from disk
-    assert client.get(f"/api/img/{pid}/thumb").status_code == 200
+    # image serving from disk — content-addressed, so it carries a cache header (issue #87)
+    thumb = client.get(f"/api/img/{pid}/thumb")
+    assert thumb.status_code == 200
+    assert "max-age" in thumb.headers.get("cache-control", "")
     assert client.get(f"/api/img/{pid}/preview").status_code == 200
     assert client.get(f"/api/img/{pid}/original").status_code == 200
 
