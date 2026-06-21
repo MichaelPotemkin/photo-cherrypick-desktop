@@ -90,10 +90,15 @@ export function useDecision(groupsKey: QueryKey) {
 
     onSettled: (_data, _err, vars, ctx) => {
       inFlight.current.delete(vars.photoId);
-      // Reconcile with the server: in scene mode a now-trashed photo must drop out of its cluster
-      // (the server excludes it), and counts re-sync. Refetch is cheap (localhost) and react-query
-      // dedupes; the optimistic update already gave instant feedback.
-      if (ctx?.key) qc.invalidateQueries({ queryKey: ctx.key });
+      // Reconcile with the server across EVERY grouping mode, not just the snapshot's key: if the user
+      // switched mode mid-flight, invalidating only the captured key would leave the now-active query
+      // (e.g. scene) un-reconciled and showing stale state on success (#82). All modes share the
+      // session's decisions, so invalidate the whole ["groups", sessionId] family. Refetch is cheap
+      // (localhost) and react-query dedupes; the optimistic update already gave instant feedback.
+      const sessionId = Array.isArray(ctx?.key) ? ctx.key[1] : undefined;
+      if (sessionId !== undefined) {
+        qc.invalidateQueries({ queryKey: ["groups", sessionId] });
+      }
     },
   });
 
