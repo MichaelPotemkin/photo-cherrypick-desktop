@@ -15,6 +15,8 @@
 use std::io::{BufRead, BufReader};
 use std::net::{SocketAddr, TcpStream};
 use std::process::{Child, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use tauri::path::BaseDirectory;
@@ -44,6 +46,10 @@ fn dequarantine_sidecar(_dir: &std::path::Path) {}
 // handler in `main`). Without this the ~200 MB Python server can outlive the app and keep holding the
 // loopback port — orphaning onto it so the NEXT launch's webview connects to this stale server.
 struct SidecarChild(std::sync::Mutex<Option<Child>>);
+
+// Set true when WE intentionally stop the sidecar (on app exit), so the stderr-EOF monitor can tell an
+// orderly shutdown from an unexpected crash and only warns about the latter. (#67)
+struct ShutdownFlag(Arc<AtomicBool>);
 
 // Kill any cull-server already running BEFORE we spawn ours. tauri-plugin-single-instance guarantees
 // we're the only app instance, so any live cull-server is an orphan from a previous run (a crash,
@@ -254,6 +260,13 @@ fn main() {
                 .stdout(Stdio::null())
                 .stderr(Stdio::piped())
                 .spawn()?;
+
+            // Monitor the sidecar's liveness: its stderr reaches EOF exactly when the process exits.
+            // If that happens without us asking it to stop (the flag below), it died unexpectedly
+            // (crash/OOM) — which would otherwise be silent, leaving the webview hung against a dead
+            // server. The flag is flipped on app exit so an orderly shutdown isn't mistaken for a crash.
+            let shutting_down = Arc::new(AtomicBool::new(false));
+            app.manage(ShutdownFlag(shutting_down.clone()));
             if let Some(stderr) = child.stderr.take() {
                 std::thread::spawn(move || {
                     for line in BufReader::new(stderr).lines() {
@@ -261,6 +274,12 @@ fn main() {
                             Ok(l) => eprintln!("[cull-server] {l}"),
                             Err(_) => break,
                         }
+                    }
+                    if !shutting_down.load(Ordering::SeqCst) {
+                        eprintln!(
+                            "[shell] WARNING: the cull-server sidecar exited unexpectedly (not asked \
+                             to stop) — the UI has lost its backend; relaunch the app to recover."
+                        );
                     }
                 });
             }
@@ -328,6 +347,11 @@ fn main() {
             // On exit, terminate our sidecar so it can't outlive the app and orphan onto the loopback
             // port (which would make the next launch render this stale server's old SPA).
             if matches!(event, RunEvent::ExitRequested { .. } | RunEvent::Exit) {
+                // mark the shutdown as intentional first, so the liveness monitor doesn't log a
+                // spurious "exited unexpectedly" warning when we kill the sidecar below.
+                if let Some(flag) = app_handle.try_state::<ShutdownFlag>() {
+                    flag.0.store(true, Ordering::SeqCst);
+                }
                 if let Some(state) = app_handle.try_state::<SidecarChild>() {
                     if let Ok(mut guard) = state.0.lock() {
                         if let Some(mut child) = guard.take() {
