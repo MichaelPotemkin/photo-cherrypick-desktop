@@ -15,7 +15,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
@@ -235,6 +235,37 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             # hashed bundle and the new UI would never appear. no-store forces a fresh entry every
             # launch (the hashed assets it references are then fetched normally).
             return FileResponse(index_html, headers={"Cache-Control": "no-store"})
+    else:
+        # No built SPA at <base>/frontend/dist. In a frozen build this means a broken bundle
+        # (the spec copies the SPA there at freeze time); from source it just means `npm run build`
+        # hasn't run. Either way, leave the catch-all registered so `/` is HANDLED — without it the
+        # webview would load a blank page / bare 404 with no clue why. Warn loudly at startup and
+        # serve a readable HTML page instead.
+        fix = (
+            "reinstall the app — this build is missing its bundled UI"
+            if getattr(sys, "frozen", False)
+            else "run `npm run build` in frontend/ (or `npm run dev` for the live dev server)"
+        )
+        print(
+            f"WARNING: SPA not found at {spa} — the UI will not load. To fix: {fix}.",
+            file=sys.stderr,
+        )
+        _missing_spa_html = (
+            "<!doctype html><meta charset=utf-8>"
+            "<title>UI not found</title>"
+            "<body style=\"font:16px/1.5 system-ui,sans-serif;max-width:34rem;margin:4rem auto;padding:0 1rem\">"
+            "<h1>UI not found</h1>"
+            f"<p>The app's web UI wasn't found at <code>{spa}</code>, so the API is running but "
+            "there's nothing to show.</p>"
+            f"<p><b>To fix:</b> {fix}.</p>"
+            "</body>"
+        )
+
+        @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+        def spa_missing(full_path: str):
+            if full_path.startswith("api/"):
+                raise HTTPException(404, "not found")
+            return HTMLResponse(_missing_spa_html, status_code=503)
 
     return app
 

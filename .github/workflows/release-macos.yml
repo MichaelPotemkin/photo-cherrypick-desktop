@@ -83,8 +83,8 @@ jobs:
           python -m pip install --upgrade pip
           # On macOS arm64 the default PyPI torch/torchvision wheels ARE the CPU/MPS arm64 builds
           # (no CUDA on macOS), so a plain install matches the pinned versions in requirements.txt.
+          # PyInstaller is pinned in requirements.txt too — single source so CI + local freezes match.
           pip install -r requirements.txt
-          pip install pyinstaller==6.11.1
 
       - name: Freeze the sidecar (PyInstaller)
         run: |
