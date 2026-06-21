@@ -13,9 +13,12 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
   },
-  // Pure-function unit tests (vitest run). Node env — no DOM needed for the current tests.
+  // Unit + component tests (vitest run). jsdom so React components can render and be queried with
+  // @testing-library; the pure-function tests run fine under it too. setupFiles registers jest-dom
+  // matchers + per-test DOM cleanup.
   test: {
-    environment: "node",
+    environment: "jsdom",
+    setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
   },
 });
