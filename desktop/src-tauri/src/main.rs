@@ -15,8 +15,8 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use tauri::{Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
-use tauri_plugin_shell::process::CommandEvent;
+use tauri::{Emitter, Listener, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 #[cfg(desktop)]
 use tauri_plugin_updater::UpdaterExt;
@@ -41,6 +41,35 @@ fn dequarantine_sidecar() {
 }
 #[cfg(not(target_os = "macos"))]
 fn dequarantine_sidecar() {}
+
+// Managed handle to our spawned sidecar so we can terminate it when the app exits (see the RunEvent
+// handler in `main`). Without this the ~200 MB Python server can outlive the app and keep holding the
+// loopback port — orphaning onto it so the NEXT launch's webview connects to this stale server.
+struct SidecarChild(std::sync::Mutex<Option<CommandChild>>);
+
+// Kill any cull-server already running BEFORE we spawn ours. tauri-plugin-single-instance guarantees
+// we're the only app instance, so any live cull-server is an orphan from a previous run (a crash,
+// force-quit, or an update whose child outlived the parent). Left alone it keeps our fixed loopback
+// port, and our webview connects to ITS stale server — serving an OLD SPA under a NEW app version
+// (the recurring "updated, but the interface is from the previous version" bug). SIGKILL because a
+// graceful SIGTERM lets uvicorn linger and hold the socket; then wait for the port to actually free
+// before the caller spawns our own.
+#[cfg(target_os = "macos")]
+fn kill_stale_sidecars(port: u16) {
+    let _ = std::process::Command::new("/usr/bin/pkill")
+        .args(["-9", "-x", "cull-server"])
+        .status();
+    let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+    for _ in 0..20 {
+        if TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_err() {
+            return; // port released
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    eprintln!("[shell] warning: port {port} still busy after killing stale sidecar(s)");
+}
+#[cfg(not(target_os = "macos"))]
+fn kill_stale_sidecars(_port: u16) {}
 
 // Poll until the sidecar is accepting TCP connections; return whether it came up. A frozen onefile
 // re-extracts and imports torch/opencv on launch (tens of seconds, longer when an update download is
@@ -192,6 +221,10 @@ fn main() {
             //    on a freshly-downloaded unsigned build (no terminal step for the user).
             dequarantine_sidecar();
 
+            // 0b. kill any orphaned sidecar from a previous run before we bind our port (see fn doc) —
+            //     otherwise our webview would connect to its stale server and show an old SPA.
+            kill_stale_sidecars(PORT);
+
             // 1. spawn the packaged local server (single-user, binds to loopback only)
             let sidecar = app.shell().sidecar("cull-server")?.args([
                 "--host",
@@ -199,7 +232,9 @@ fn main() {
                 "--port",
                 &PORT.to_string(),
             ]);
-            let (mut rx, _child) = sidecar.spawn()?;
+            let (mut rx, child) = sidecar.spawn()?;
+            // keep the child handle so we can kill it on exit (don't orphan it onto the port)
+            app.manage(SidecarChild(std::sync::Mutex::new(Some(child))));
             tauri::async_runtime::spawn(async move {
                 while let Some(event) = rx.recv().await {
                     if let CommandEvent::Stderr(line) = event {
@@ -263,6 +298,19 @@ fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // On exit, terminate our sidecar so it can't outlive the app and orphan onto the loopback
+            // port (which would make the next launch render this stale server's old SPA).
+            if matches!(event, RunEvent::ExitRequested { .. } | RunEvent::Exit) {
+                if let Some(state) = app_handle.try_state::<SidecarChild>() {
+                    if let Ok(mut guard) = state.0.lock() {
+                        if let Some(child) = guard.take() {
+                            let _ = child.kill();
+                        }
+                    }
+                }
+            }
+        });
 }
