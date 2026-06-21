@@ -4,6 +4,7 @@ import { createSession, deleteSession, listSessions } from "../api";
 import type { SessionListItem } from "../api";
 import { useI18n, tVariants } from "../i18n";
 import { inTauri, pickFolder } from "../lib/tauri";
+import { SESSION_LIST_POLL_MS } from "../constants";
 import HelpButton from "./HelpGuide";
 import LangToggle from "./LangToggle";
 import StableLabel from "./StableLabel";
@@ -50,7 +51,7 @@ export default function SessionInput({ onOpen }: Props) {
   const sessions = useQuery({
     queryKey: ["sessions"],
     queryFn: listSessions,
-    refetchInterval: 4000, // keep processing statuses fresh
+    refetchInterval: SESSION_LIST_POLL_MS, // keep processing statuses fresh
   });
 
   const delMutation = useMutation({

@@ -13,6 +13,7 @@ import {
 } from "../api";
 import { useDecision } from "../useDecision";
 import { useI18n } from "../i18n";
+import { PROGRESS_POLL_MS } from "../constants";
 import { useKeyboard, type ClosedHandlers, type OpenHandlers } from "../useKeyboard";
 import Progress from "./Progress";
 import CountsHeader from "./CountsHeader";
@@ -50,7 +51,7 @@ export default function SessionView({ sessionId, onHome }: Props) {
     queryFn: () => getSession(sessionId),
     refetchInterval: (query) => {
       const s = query.state.data?.status;
-      return s === "ready" || s === "error" ? false : 1500;
+      return s === "ready" || s === "error" ? false : PROGRESS_POLL_MS;
     },
   });
 
