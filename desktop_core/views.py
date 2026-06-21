@@ -10,13 +10,9 @@ from datetime import datetime
 
 from pipeline.scene_group import build_scene_groups
 
+from .constants import CLOSE_GAP
 from .feed import plan_feed, shot_scale
 from .store import CullStore
-
-# A scene's best two frames within this overall margin are a near-tie — same meaning and value as
-# the burst flag (pipeline_runner._CLOSE_GAP); surfaced for scenes too so the "⚖ too close to call"
-# badge stays consistent with the "suggested" best-frame pick shown in both modes.
-_CLOSE_GAP = 0.05
 
 
 def when_str(ctime: float | None) -> str:
@@ -203,7 +199,7 @@ def _scene_groups(store: CullStore, sid: str, photos: dict, analyses: dict, stat
         ctimes = [photos[rec["id"]]["ctime"] for rec in cluster if photos[rec["id"]]["ctime"]]
         avg = sum(rec["overall"] for rec in cluster) / n if n else 0.0
         top2 = sorted((rec["overall"] for rec in cluster), reverse=True)[:2]
-        close = len(top2) == 2 and (top2[0] - top2[1]) < _CLOSE_GAP
+        close = len(top2) == 2 and (top2[0] - top2[1]) < CLOSE_GAP
         groups.append({
             "idx": gi,
             # "unique look" (not "single shot") so a 1-photo scene reads differently from a 1-photo

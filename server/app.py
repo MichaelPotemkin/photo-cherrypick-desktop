@@ -200,7 +200,9 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             raise HTTPException(404, "unknown size")
         if not path or not Path(path).exists():
             raise HTTPException(404, "image not available")
-        return FileResponse(path)
+        # Thumb/preview are generated once at ingest and addressed by (photo id, size) — effectively
+        # immutable — so let the webview cache them instead of re-fetching every grid scroll / relaunch.
+        return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
 
     # --- SPA static (served at / when built) ---
     # Serve hashed build assets from /assets, and fall everything else back to index.html so a hard
