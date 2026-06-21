@@ -1,6 +1,6 @@
 [package]
 name = "photo-cherrypick-desktop"
-version = "1.0.10"
+version = "1.0.11"
 edition = "2021"
 description = "Local-first photo culling desktop app"
 

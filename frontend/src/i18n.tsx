@@ -28,7 +28,8 @@ const en: Dict = {
   analyzing: "Analyzing…",
   failed_create: "Failed to create session",
   recent_sessions: "Recent sessions",
-  n_photos: "{n} photos",
+  // Plural forms separated by "|" (singular|plural) — selected by `selectPlural` from the `n` var.
+  n_photos: "{n} photo|{n} photos",
   status_analyzing: "analyzing {done}/{total}…",
   status_queued: "queued…",
   status_error: "error",
@@ -62,8 +63,8 @@ const en: Dict = {
   new_session: "New session",
   rename_session: "Rename session",
   session_name: "Session name",
-  sub_bursts: "{n} bursts",
-  sub_scenes: "{n} scenes",
+  sub_bursts: "{n} burst|{n} bursts",
+  sub_scenes: "{n} scene|{n} scenes",
   sub_feed: "{n} in feed",
   aria_grouping_mode: "Grouping mode",
   aria_language: "Language",
@@ -585,12 +586,40 @@ function interpolate(s: string, vars?: Record<string, string | number>): string 
   return out;
 }
 
-// Every language's rendering of a key (same fallback chain as `t`). Used to reserve the width of the
-// widest translation so a control's size doesn't change when the language switches — see StableLabel.
+// Index into a "form1|form2[|form3]" value for the given count. English is two-form (singular when
+// n===1, plural otherwise); Ukrainian and Russian share the East-Slavic three-form rule (one / few /
+// many). Callers clamp to the available forms, so a two-form value used in a Slavic locale resolves
+// to its last ("many"/plural) form rather than going out of range.
+export function selectPlural(lang: Lang, n: number): number {
+  if (lang === "en") return n === 1 ? 0 : 1;
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 0; // one: 1, 21, 31…
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 1; // few: 2-4, 22-24…
+  return 2; // many: 0, 5-20, 11-14…
+}
+
+// Resolve a key to its final string for one language: dict → English fallback → raw key, then pick a
+// plural form when the value encodes "singular|plural" and a numeric `n` is supplied, then interpolate
+// {placeholders}. The pure core shared by the `t` hook and `tVariants` so they translate identically.
+export function translate(
+  lang: Lang,
+  key: string,
+  vars?: Record<string, string | number>,
+): string {
+  let s = DICTS[lang][key] ?? en[key] ?? key;
+  if (s.includes("|") && vars && typeof vars.n === "number") {
+    const forms = s.split("|");
+    s = forms[Math.min(selectPlural(lang, vars.n), forms.length - 1)];
+  }
+  return interpolate(s, vars);
+}
+
+// Every language's rendering of a key (same fallback + plural chain as `t`). Used to reserve the width
+// of the widest translation so a control's size doesn't change when the language switches — see
+// StableLabel.
 export function tVariants(key: string, vars?: Record<string, string | number>): string[] {
-  return (Object.keys(DICTS) as Lang[]).map((l) =>
-    interpolate(DICTS[l][key] ?? en[key] ?? key, vars),
-  );
+  return (Object.keys(DICTS) as Lang[]).map((l) => translate(l, key, vars));
 }
 
 interface I18n {
@@ -625,8 +654,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
     setLangState(l);
   }, []);
   const t = useCallback(
-    (key: string, vars?: Record<string, string | number>) =>
-      interpolate(DICTS[lang][key] ?? en[key] ?? key, vars),
+    (key: string, vars?: Record<string, string | number>) => translate(lang, key, vars),
     [lang],
   );
   const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
