@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { DecisionAction, Group, ViewMode } from "../api";
 import { useI18n } from "../i18n";
+import { buildGroupLabel } from "../lib/groupLabel";
 import { AxisGrid } from "./AxisBars";
 
 interface Props {
@@ -98,14 +99,7 @@ export default function Lightbox({
   }
 
   const n = group.photos.length;
-  const groupLabel =
-    mode === "scene"
-      ? n > 1
-        ? t("label_scene", { n })
-        : t("label_unique")
-      : n > 1
-        ? t("label_burst_pick", { n })
-        : t("label_single");
+  const groupLabel = buildGroupLabel(t, mode, n);
 
   const caption =
     `${index + 1}/${n} · ${photo.filename} · ${photo.when} · ` +
