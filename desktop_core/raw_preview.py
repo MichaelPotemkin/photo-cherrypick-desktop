@@ -12,6 +12,7 @@ original file off untouched.
 from __future__ import annotations
 
 import io
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageOps
@@ -41,12 +42,18 @@ def _raw_embedded_preview(path: Path) -> Image.Image | None:
     """Extract the embedded full-size preview from a RAW file (preview-first). None if absent."""
     try:
         import rawpy
-    except ImportError:
+    except ImportError as e:
+        # rawpy/libraw not bundled — RAW support is simply unavailable; expected on such builds.
+        print(f"raw_preview: rawpy unavailable, cannot read {path.name}: {e}", file=sys.stderr)
         return None
     try:
         with rawpy.imread(str(path)) as raw:
             thumb = raw.extract_thumb()
-    except Exception:
+    except Exception as e:
+        # libraw raises a grab-bag of types (LibRawError subclasses, ValueError) and the "no
+        # embedded thumb" case is normal — stay non-fatal so we fall through to a full decode, but
+        # surface the reason (corrupt file, OOM, unsupported body all look identical otherwise).
+        print(f"raw_preview: embedded-preview extract failed for {path.name}: {e!r}", file=sys.stderr)
         return None
     try:
         if thumb.format == rawpy.ThumbFormat.JPEG:
@@ -55,7 +62,10 @@ def _raw_embedded_preview(path: Path) -> Image.Image | None:
             return ImageOps.exif_transpose(Image.open(io.BytesIO(thumb.data))).convert("RGB")
         # BITMAP: thumb.data is an HxWx3 ndarray (already oriented by libraw; no EXIF to apply)
         return Image.fromarray(thumb.data).convert("RGB")
-    except Exception:
+    except Exception as e:
+        # decoding the extracted thumb (PIL / ndarray conversion) failed — non-fatal, fall through
+        # to the full-decode path, but log so a systematically broken preview is diagnosable.
+        print(f"raw_preview: embedded-preview decode failed for {path.name}: {e!r}", file=sys.stderr)
         return None
 
 
@@ -70,7 +80,10 @@ def raw_exif(path: Path):
             thumb = raw.extract_thumb()
         if thumb.format == rawpy.ThumbFormat.JPEG:
             return Image.open(io.BytesIO(thumb.data)).getexif()
-    except Exception:
+    except Exception as e:
+        # best-effort: missing rawpy, no embedded thumb, or an unreadable preview just means we
+        # lose RAW capture time (caller copes with None) — non-fatal, but log so it's diagnosable.
+        print(f"raw_preview: RAW EXIF read failed for {path.name}: {e!r}", file=sys.stderr)
         return None
     return None
 
@@ -83,7 +96,12 @@ def _raw_full_decode(path: Path) -> Image.Image | None:
         with rawpy.imread(str(path)) as raw:
             rgb = raw.postprocess(use_camera_wb=True, no_auto_bright=False, output_bps=8)
         return Image.fromarray(np.ascontiguousarray(rgb)).convert("RGB")
-    except Exception:
+    except Exception as e:
+        # full develop is the last resort; failure here means the file is genuinely unrenderable
+        # (corrupt, truly unsupported body) — or a preventable condition like MemoryError on a huge
+        # frame. Stays non-fatal (caller marks it "unsupported"), but log so OOM/corruption don't
+        # masquerade as plain "unsupported format".
+        print(f"raw_preview: full RAW decode failed for {path.name}: {e!r}", file=sys.stderr)
         return None
 
 
@@ -100,7 +118,11 @@ def load_rgb(path: Path) -> Image.Image | None:
         img = Image.open(path)
         # honour EXIF orientation so the displayed/analysed pixels match what the camera intended
         return ImageOps.exif_transpose(img).convert("RGB")
-    except Exception:
+    except Exception as e:
+        # unidentifiable/corrupt image, or a missing decoder (e.g. pillow-heif not registered for
+        # HEIC) — non-fatal so the caller can show "unsupported", but log so a missing plugin or a
+        # corrupt file is distinguishable.
+        print(f"raw_preview: image open failed for {path.name}: {e!r}", file=sys.stderr)
         return None
 
 

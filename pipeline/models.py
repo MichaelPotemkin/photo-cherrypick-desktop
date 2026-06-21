@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+import traceback
 import urllib.request
 from pathlib import Path
 
@@ -67,10 +68,16 @@ def device() -> str:
     return os.environ.get("TORCH_DEVICE") or ("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def _log(msg: str):
+    """Diagnostics go to stderr, which the sidecar forwards to the Tauri shell's log."""
+    print(f"[models] {msg}", file=sys.stderr, flush=True)
+
+
 def _download(url: str, path: Path):
     if not path.exists():
-        print(f"downloading {path.name} ...")
+        _log(f"downloading {path.name} from {url} -> {path}")
         urllib.request.urlretrieve(url, path)
+        _log(f"downloaded {path.name} ({path.stat().st_size} bytes)")
 
 
 def yunet():
@@ -78,21 +85,35 @@ def yunet():
         try:
             _download(YUNET_URL, YUNET_PATH)
             _state["yunet"] = cv2.FaceDetectorYN_create(str(YUNET_PATH), "", (0, 0), SCORE_THRESHOLD)
+            _log(f"loaded YuNet face detector from {YUNET_PATH}")
         except Exception as e:
-            print(f"  (YuNet unavailable: {e} -- falling back to Haar)")
+            _log(f"YuNet load FAILED (url={YUNET_URL}, path={YUNET_PATH}): {e!r} "
+                 f"-- detection degrades to the Haar cascade fallback")
+            traceback.print_exc(file=sys.stderr)
             _state["yunet"] = None
     return _state["yunet"]
 
 
 def haar():
     if "haar" not in _state:
-        _state["haar"] = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        cascade = cv2.CascadeClassifier(path)
+        # CascadeClassifier never raises on a bad path -- it returns an empty classifier that
+        # silently detects nothing. Since this is YuNet's fallback, an empty one means no face
+        # detection at all, so surface it rather than degrading without a trace.
+        if cascade.empty():
+            _log(f"Haar frontalface cascade FAILED to load from {path} -- face detection will be empty")
+        _state["haar"] = cascade
     return _state["haar"]
 
 
 def eye_cascade():
     if "eye" not in _state:
-        _state["eye"] = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
+        path = cv2.data.haarcascades + "haarcascade_eye.xml"
+        cascade = cv2.CascadeClassifier(path)
+        if cascade.empty():
+            _log(f"Haar eye cascade FAILED to load from {path} -- eye detection will be empty")
+        _state["eye"] = cascade
     return _state["eye"]
 
 
@@ -100,10 +121,19 @@ def clip():
     """(model, preprocess, tokenizer, device)."""
     if "clip" not in _state:
         dev = device()
-        model, _, pre = open_clip.create_model_and_transforms("ViT-B-32-quickgelu", pretrained="openai")
-        model = model.to(dev).eval()
-        tok = open_clip.get_tokenizer("ViT-B-32-quickgelu")
+        try:
+            model, _, pre = open_clip.create_model_and_transforms("ViT-B-32-quickgelu", pretrained="openai")
+            model = model.to(dev).eval()
+            tok = open_clip.get_tokenizer("ViT-B-32-quickgelu")
+        except Exception as e:
+            # No fallback for CLIP -- it backs embeddings, scene grouping and expression probes.
+            # Log enough to diagnose (often a weight download failure), then re-raise so the
+            # failure propagates to the caller instead of being swallowed.
+            _log(f"CLIP (ViT-B-32-quickgelu/openai, device={dev}) load FAILED: {e!r}")
+            traceback.print_exc(file=sys.stderr)
+            raise
         _state["clip"] = (model, pre, tok, dev)
+        _log(f"loaded CLIP ViT-B-32-quickgelu (openai) on {dev}")
     return _state["clip"]
 
 
@@ -128,8 +158,11 @@ def aes_head():
             head.load_state_dict(torch.load(str(AES_PATH), map_location="cpu"))
             head.eval()
             _state["aes"] = head
+            _log(f"loaded aesthetic head from {AES_PATH}")
         except Exception as e:
-            print(f"  (aesthetic head unavailable: {e})")
+            _log(f"aesthetic head load FAILED (url={AES_URL}, path={AES_PATH}): {e!r} "
+                 f"-- aesthetic scoring is skipped for this run")
+            traceback.print_exc(file=sys.stderr)
             _state["aes"] = None
     return _state["aes"]
 
