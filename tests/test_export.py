@@ -107,3 +107,40 @@ def test_export_nothing_raises(tmp_store, tmp_path):
     sid = tmp_store.create_session(str(tmp_path))  # no decisions
     with pytest.raises(ValueError):
         export_mod.export_to_folder(tmp_store, sid, tmp_path / "out")
+
+
+def test_export_to_folder_move_is_destructive(tmp_store, tmp_path):
+    """move=True relocates the picked originals (gone from src, present in dest); un-picked files stay."""
+    src = tmp_path / "src"
+    sid = _seed(tmp_store, src)
+    dest = tmp_path / "out"
+    res = export_mod.export_to_folder(tmp_store, sid, dest, move=True)
+    assert res["moved"] is True and res["exported"] == 2
+    assert (dest / "fav.jpg").exists() and (dest / "maybe.jpg").exists()
+    assert not (src / "fav.jpg").exists() and not (src / "maybe.jpg").exists()  # moved out
+    assert (src / "trash.jpg").exists()  # un-picked original untouched
+
+
+def test_export_counts_missing_originals(tmp_store, tmp_path):
+    """A pick whose original vanished from disk is counted as missing, not a crash."""
+    src = tmp_path / "src"
+    sid = _seed(tmp_store, src)
+    (src / "fav.jpg").unlink()  # a favorite's original deleted out from under us
+    res = export_mod.export_to_folder(tmp_store, sid, tmp_path / "out")
+    assert res["exported"] == 1 and res["missing"] == 1  # maybe exported, fav missing
+
+
+def test_export_disambiguates_duplicate_filenames(tmp_store, tmp_path):
+    """Two picks sharing a basename must both land in the flat dest without clobbering each other."""
+    src = tmp_path / "src"
+    sid = tmp_store.create_session(str(src))
+    for sub in ("a", "b"):
+        p = write_jpeg(src / sub / "dup.jpg")
+        pid = tmp_store.add_photo(sid, "dup.jpg", str(p), is_raw=False)
+        tmp_store.save_analysis(pid, emb=None, meta={}, axes={}, cats={}, overall=0.7,
+                                reasons=[], group_idx=0, in_group_order=0, suggested=False)
+        tmp_store.add_decision(sid, pid, "favorite")
+    dest = tmp_path / "out"
+    res = export_mod.export_to_folder(tmp_store, sid, dest)
+    assert res["exported"] == 2
+    assert {p.name for p in dest.iterdir()} == {"dup.jpg", "dup_1.jpg"}  # collision disambiguated
