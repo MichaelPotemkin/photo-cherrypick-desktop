@@ -186,38 +186,38 @@ class CullStore:
     # --- sessions ---
     def create_session(self, source_path: str, title: str | None = None) -> str:
         sid = _new_id()
-        self._conn.execute(
-            "INSERT INTO sessions(id, source, source_path, title, status, created_at) "
-            "VALUES (?,?,?,?,?,?)",
-            (sid, "local", source_path, title or Path(source_path).name, "pending", time.time()),
-        )
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute(
+                "INSERT INTO sessions(id, source, source_path, title, status, created_at) "
+                "VALUES (?,?,?,?,?,?)",
+                (sid, "local", source_path, title or Path(source_path).name, "pending", time.time()),
+            )
         return sid
 
     def set_status(self, sid: str, status: str, error: str | None = None) -> None:
         processed = time.time() if status == "ready" else None
-        self._conn.execute(
-            "UPDATE sessions SET status=?, error=?, processed_at=COALESCE(?, processed_at) WHERE id=?",
-            (status, error, processed, sid),
-        )
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute(
+                "UPDATE sessions SET status=?, error=?, processed_at=COALESCE(?, processed_at) WHERE id=?",
+                (status, error, processed, sid),
+            )
 
     def set_total(self, sid: str, n_total: int) -> None:
-        self._conn.execute("UPDATE sessions SET n_total=?, n_done=0 WHERE id=?", (n_total, sid))
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute("UPDATE sessions SET n_total=?, n_done=0 WHERE id=?", (n_total, sid))
 
     def set_progress(self, sid: str, n_done: int) -> None:
-        self._conn.execute("UPDATE sessions SET n_done=? WHERE id=?", (n_done, sid))
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute("UPDATE sessions SET n_done=? WHERE id=?", (n_done, sid))
 
     def rename(self, sid: str, title: str) -> bool:
-        cur = self._conn.execute("UPDATE sessions SET title=? WHERE id=?", (title.strip(), sid))
-        self._conn.commit()
+        with self._conn:
+            cur = self._conn.execute("UPDATE sessions SET title=? WHERE id=?", (title.strip(), sid))
         return cur.rowcount > 0
 
     def delete_session(self, sid: str) -> bool:
-        cur = self._conn.execute("DELETE FROM sessions WHERE id=?", (sid,))
-        self._conn.commit()
+        with self._conn:
+            cur = self._conn.execute("DELETE FROM sessions WHERE id=?", (sid,))
         return cur.rowcount > 0
 
     def get_session(self, sid: str) -> dict | None:
@@ -231,22 +231,23 @@ class CullStore:
     # --- photos ---
     def add_photo(self, sid: str, filename: str, path: str, is_raw: bool) -> str:
         pid = _new_id()
-        self._conn.execute(
-            "INSERT INTO photos(id, session_id, filename, original_path, is_raw) VALUES (?,?,?,?,?)",
-            (pid, sid, filename, path, 1 if is_raw else 0),
-        )
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute(
+                "INSERT INTO photos(id, session_id, filename, original_path, is_raw) VALUES (?,?,?,?,?)",
+                (pid, sid, filename, path, 1 if is_raw else 0),
+            )
         return pid
 
     def set_photo_cache(self, pid: str, preview_path: str, thumb_path: str) -> None:
-        self._conn.execute(
-            "UPDATE photos SET preview_path=?, thumb_path=? WHERE id=?", (preview_path, thumb_path, pid)
-        )
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute(
+                "UPDATE photos SET preview_path=?, thumb_path=? WHERE id=?",
+                (preview_path, thumb_path, pid),
+            )
 
     def set_photo_meta(self, pid: str, camera: str | None, ctime: float | None) -> None:
-        self._conn.execute("UPDATE photos SET camera=?, ctime=? WHERE id=?", (camera, ctime, pid))
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute("UPDATE photos SET camera=?, ctime=? WHERE id=?", (camera, ctime, pid))
 
     def list_photos(self, sid: str) -> list[dict]:
         rows = self._conn.execute("SELECT * FROM photos WHERE session_id=?", (sid,)).fetchall()
@@ -262,26 +263,26 @@ class CullStore:
         overall: float, reasons: list[str], group_idx: int, in_group_order: int, suggested: bool,
     ) -> None:
         blob = np.asarray(emb, dtype=np.float32).tobytes() if emb is not None else None
-        self._conn.execute(
-            "INSERT OR REPLACE INTO analyses(photo_id, emb, meta, axes, cats, overall, reasons, "
-            "group_idx, in_group_order, suggested) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            (
-                pid, blob,
-                json.dumps(_jsonable(meta)), json.dumps(_jsonable(axes)), json.dumps(_jsonable(cats)),
-                float(overall), json.dumps(list(reasons)),
-                int(group_idx), int(in_group_order), 1 if suggested else 0,
-            ),
-        )
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO analyses(photo_id, emb, meta, axes, cats, overall, reasons, "
+                "group_idx, in_group_order, suggested) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (
+                    pid, blob,
+                    json.dumps(_jsonable(meta)), json.dumps(_jsonable(axes)), json.dumps(_jsonable(cats)),
+                    float(overall), json.dumps(list(reasons)),
+                    int(group_idx), int(in_group_order), 1 if suggested else 0,
+                ),
+            )
 
     def save_group(self, sid: str, idx: int, label: str, when_ts: float | None,
                    avg_score: float, close_call: bool = False) -> None:
-        self._conn.execute(
-            "INSERT INTO groups(session_id, idx, label, when_ts, avg_score, close_call) "
-            "VALUES (?,?,?,?,?,?)",
-            (sid, int(idx), label, when_ts, float(avg_score), 1 if close_call else 0),
-        )
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute(
+                "INSERT INTO groups(session_id, idx, label, when_ts, avg_score, close_call) "
+                "VALUES (?,?,?,?,?,?)",
+                (sid, int(idx), label, when_ts, float(avg_score), 1 if close_call else 0),
+            )
 
     def get_groups(self, sid: str) -> list[dict]:
         rows = self._conn.execute(
@@ -319,14 +320,19 @@ class CullStore:
         return out
 
     # --- decisions / state (append-only; latest row per photo wins) ---
-    def add_decision(self, sid: str, pid: str, action: str) -> str:
+    def _insert_decision(self, sid: str, pid: str, action: str) -> None:
+        """Raw decision INSERT with NO transaction control — the caller owns the transaction, so a
+        batch (accept_suggestions) commits all-or-nothing."""
         if action not in ACTIONS:
             raise ValueError(f"bad action: {action}")
         self._conn.execute(
             "INSERT INTO decisions(session_id, photo_id, action, created_at) VALUES (?,?,?,?)",
             (sid, pid, action, time.time()),
         )
-        self._conn.commit()
+
+    def add_decision(self, sid: str, pid: str, action: str) -> str:
+        with self._conn:  # commit on success, roll back on error
+            self._insert_decision(sid, pid, action)
         return "none" if action == "undo" else action
 
     def accept_suggestions(self, sid: str) -> int:
@@ -339,11 +345,12 @@ class CullStore:
             (sid,),
         ).fetchall()
         accepted = 0
-        for r in rows:
-            pid = r["photo_id"]
-            if states.get(pid, "none") == "none":   # don't clobber a manual decision
-                self.add_decision(sid, pid, "favorite")
-                accepted += 1
+        with self._conn:  # all-or-nothing: a failure part-way rolls back every favorite in this batch
+            for r in rows:
+                pid = r["photo_id"]
+                if states.get(pid, "none") == "none":  # don't clobber a manual decision
+                    self._insert_decision(sid, pid, "favorite")
+                    accepted += 1
         return accepted
 
     def count_pending_suggestions(self, sid: str) -> int:
