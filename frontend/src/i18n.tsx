@@ -172,6 +172,12 @@ const en: Dict = {
   loading_groups: "Loading groups…",
   failed_load_groups: "Failed to load groups",
 
+  // --- error states / boundary ---
+  error_boundary_title: "Something went wrong",
+  error_boundary_body: "The app hit an unexpected error. Reloading usually fixes it.",
+  reload: "Reload",
+  retry: "Retry",
+
   // --- scoring reasons (the fixed vocabulary from pipeline/score.py) ---
   "reason:eyes open": "eyes open",
   "reason:all eyes open": "all eyes open",
@@ -359,6 +365,11 @@ const uk: Dict = {
   loading_groups: "Завантаження груп…",
   failed_load_groups: "Не вдалося завантажити групи",
 
+  error_boundary_title: "Щось пішло не так",
+  error_boundary_body: "Сталася неочікувана помилка. Зазвичай допомагає перезавантаження.",
+  reload: "Перезавантажити",
+  retry: "Повторити",
+
   "reason:eyes open": "очі відкриті",
   "reason:all eyes open": "усі очі відкриті",
   "reason:sharp eyes": "різкі очі",
@@ -541,6 +552,11 @@ const ru: Dict = {
   loading: "Загрузка…",
   loading_groups: "Загрузка групп…",
   failed_load_groups: "Не удалось загрузить группы",
+
+  error_boundary_title: "Что-то пошло не так",
+  error_boundary_body: "Произошла непредвиденная ошибка. Обычно помогает перезагрузка.",
+  reload: "Перезагрузить",
+  retry: "Повторить",
 
   "reason:eyes open": "глаза открыты",
   "reason:all eyes open": "все глаза открыты",

@@ -19,6 +19,7 @@ import CountsHeader from "./CountsHeader";
 import GroupGrid from "./GroupGrid";
 import FeedView from "./FeedView";
 import Lightbox from "./Lightbox";
+import ErrorState from "./ErrorState";
 
 interface Props {
   sessionId: string;
@@ -334,14 +335,12 @@ export default function SessionView({ sessionId, onHome }: Props) {
   // --- Render ------------------------------------------------------------
   if (sessionQuery.isError) {
     return (
-      <div className="centered error-screen">
-        <p className="error">
-          {(sessionQuery.error as Error)?.message ?? t("failed_load_session")}
-        </p>
-        <button className="btn btn-ghost" onClick={onHome}>
-          {t("back_new_session")}
-        </button>
-      </div>
+      <ErrorState
+        title={t("failed_load_session")}
+        detail={(sessionQuery.error as Error)?.message}
+        onRetry={() => sessionQuery.refetch()}
+        action={{ label: t("back_new_session"), onClick: onHome }}
+      />
     );
   }
 
@@ -351,13 +350,11 @@ export default function SessionView({ sessionId, onHome }: Props) {
 
   if (status === "error") {
     return (
-      <div className="centered error-screen">
-        <h2>{t("analysis_failed")}</h2>
-        <p className="error">{sessionQuery.data.error ?? t("unknown_error")}</p>
-        <button className="btn btn-ghost" onClick={onHome}>
-          {t("back_new_session")}
-        </button>
-      </div>
+      <ErrorState
+        title={t("analysis_failed")}
+        detail={sessionQuery.data.error ?? t("unknown_error")}
+        action={{ label: t("back_new_session"), onClick: onHome }}
+      />
     );
   }
 
@@ -371,14 +368,12 @@ export default function SessionView({ sessionId, onHome }: Props) {
 
   if (groupsQuery.isError) {
     return (
-      <div className="centered error-screen">
-        <p className="error">
-          {(groupsQuery.error as Error)?.message ?? t("failed_load_groups")}
-        </p>
-        <button className="btn btn-ghost" onClick={onHome}>
-          {t("back_new_session")}
-        </button>
-      </div>
+      <ErrorState
+        title={t("failed_load_groups")}
+        detail={(groupsQuery.error as Error)?.message}
+        onRetry={() => groupsQuery.refetch()}
+        action={{ label: t("back_new_session"), onClick: onHome }}
+      />
     );
   }
 
