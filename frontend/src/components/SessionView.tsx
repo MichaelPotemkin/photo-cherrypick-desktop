@@ -1,19 +1,14 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  acceptSuggestions,
   downloadExport,
-  getGroups,
-  getSession,
-  renameSession,
   type DecisionAction,
   type Group,
   type GroupsResponse,
   type ViewMode,
 } from "../api";
 import { useDecision } from "../useDecision";
+import { useSessionData } from "../useSessionData";
 import { useI18n } from "../i18n";
-import { PROGRESS_POLL_MS } from "../constants";
 import { useKeyboard, type ClosedHandlers, type OpenHandlers } from "../useKeyboard";
 import Progress from "./Progress";
 import CountsHeader from "./CountsHeader";
@@ -45,53 +40,15 @@ export default function SessionView({ sessionId, onHome }: Props) {
     [sessionId, groupMode],
   );
 
-  // --- Progress polling: poll the session detail until status is ready/error.
-  const sessionQuery = useQuery({
-    queryKey: ["session", sessionId],
-    queryFn: () => getSession(sessionId),
-    refetchInterval: (query) => {
-      const s = query.state.data?.status;
-      return s === "ready" || s === "error" ? false : PROGRESS_POLL_MS;
-    },
-  });
-
-  const status = sessionQuery.data?.status;
-  const ready = status === "ready";
-
-  // --- Groups: only fetched once the session is ready.
-  // Groups stay loaded even in feed mode so the header keeps its counts/title; the feed has its own
-  // query and renders its own grid.
-  const groupsQuery = useQuery({
-    queryKey: groupsKey,
-    queryFn: () => getGroups(sessionId, groupMode),
-    enabled: ready,
-  });
+  // Data layer (session poll + ready-gated groups query + rename/accept mutations) lives in a hook so
+  // this component is left with UI state + layout (#80).
+  const { sessionQuery, status, ready, groupsQuery, renameMut, acceptMut } = useSessionData(
+    sessionId,
+    groupMode,
+    groupsKey,
+  );
 
   const decide = useDecision(groupsKey);
-
-  // --- Rename: optimistic title update, then reconcile both queries.
-  const queryClient = useQueryClient();
-  const renameMut = useMutation({
-    mutationFn: (title: string) => renameSession(sessionId, title),
-    onMutate: (title: string) => {
-      queryClient.setQueryData<GroupsResponse>(groupsKey, (old) =>
-        old ? { ...old, session: { ...old.session, title } } : old,
-      );
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: groupsKey });
-      queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-    },
-  });
-
-  // Accept all suggestions: favorite every undecided best-of-burst pick (confirmed in the header).
-  const acceptMut = useMutation({
-    mutationFn: () => acceptSuggestions(sessionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: groupsKey });
-      queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-    },
-  });
 
   // --- UI state ----------------------------------------------------------
   const [hideSorted, setHideSorted] = useState(false);
