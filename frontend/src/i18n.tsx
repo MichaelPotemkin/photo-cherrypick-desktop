@@ -100,6 +100,7 @@ const en: Dict = {
   update_downloading: "Downloading update",
   update_ready: "Update ready",
   update_relaunch_tip: "Restart now to finish updating",
+  update_error: "Update check failed",
 
   // --- groups ---
   group: "Group",
@@ -298,6 +299,7 @@ const uk: Dict = {
   update_downloading: "Завантаження оновлення",
   update_ready: "Оновлення готове",
   update_relaunch_tip: "Перезапустити, щоб завершити оновлення",
+  update_error: "Помилка перевірки оновлень",
 
   group: "Група",
   label_burst_pick: "{n} у серії — оберіть один кадр",
@@ -486,6 +488,7 @@ const ru: Dict = {
   update_downloading: "Загрузка обновления",
   update_ready: "Обновление готово",
   update_relaunch_tip: "Перезапустить, чтобы завершить обновление",
+  update_error: "Ошибка проверки обновлений",
 
   group: "Группа",
   label_burst_pick: "{n} в серии — выберите один кадр",

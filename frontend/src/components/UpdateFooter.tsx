@@ -44,6 +44,16 @@ export default function UpdateFooter() {
     );
   }
 
+  if (stage === "error") {
+    // A background update check failed (offline, unreachable, bad signature). Surface a small,
+    // non-disruptive note instead of silently swallowing it (#47) — the app keeps working.
+    return (
+      <div className="update-footer">
+        <span className="muted small">⚠ {t("update_error")}</span>
+      </div>
+    );
+  }
+
   if (!version) return null; // idle outside Tauri / version unknown → nothing to show
 
   return (
