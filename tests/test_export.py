@@ -49,7 +49,7 @@ def test_export_to_folder_is_flat_and_nondestructive(tmp_store, tmp_path):
 def test_export_to_zip_is_flat(tmp_store, tmp_path):
     sid = _seed(tmp_store, tmp_path / "src")
     zpath = tmp_path / "picks.zip"
-    export_mod.export_to_zip(tmp_store, sid, zpath)
+    export_mod.export_to_zip(tmp_store, sid, zpath, write_xmp=False)
     with zipfile.ZipFile(zpath) as zf:
         names = set(zf.namelist())
     assert names == {"fav.jpg", "maybe.jpg"}          # flat, no subfolders, no report.csv
@@ -63,7 +63,7 @@ def test_export_to_zip_handles_pre_1980_mtime(tmp_store, tmp_path):
     os.utime(src / "fav.jpg", (pre_1980, pre_1980))
 
     zpath = tmp_path / "picks.zip"
-    res = export_mod.export_to_zip(tmp_store, sid, zpath)   # must NOT raise
+    res = export_mod.export_to_zip(tmp_store, sid, zpath, write_xmp=False)   # must NOT raise
     assert res["exported"] == 2
     with zipfile.ZipFile(zpath) as zf:
         assert set(zf.namelist()) == {"fav.jpg", "maybe.jpg"}
@@ -141,6 +141,74 @@ def test_export_disambiguates_duplicate_filenames(tmp_store, tmp_path):
                                 reasons=[], group_idx=0, in_group_order=0, suggested=False)
         tmp_store.add_decision(sid, pid, "favorite")
     dest = tmp_path / "out"
-    res = export_mod.export_to_folder(tmp_store, sid, dest)
+    res = export_mod.export_to_folder(tmp_store, sid, dest, write_xmp=False)
     assert res["exported"] == 2
     assert {p.name for p in dest.iterdir()} == {"dup.jpg", "dup_1.jpg"}  # collision disambiguated
+
+
+# --- XMP sidecars (Lightroom hand-off) ---
+
+def _rating_label(xmp: str) -> tuple[int, str]:
+    """Pull (Rating, Label) out of a sidecar without a real XML parser (the packet is fixed-shape)."""
+    rating = int(xmp.split("<xmp:Rating>")[1].split("</xmp:Rating>")[0])
+    label = xmp.split("<xmp:Label>")[1].split("</xmp:Label>")[0]
+    return rating, label
+
+
+def test_export_folder_writes_xmp_sidecars(tmp_store, tmp_path):
+    """One .xmp per pick, named by basename, with favorite=5/Green and maybe=3/Yellow."""
+    src = tmp_path / "src"
+    sid = _seed(tmp_store, src)
+    dest = tmp_path / "out"
+
+    res = export_mod.export_to_folder(tmp_store, sid, dest)
+    assert res["exported"] == 2 and res["xmp"] == 2
+
+    assert (dest / "fav.xmp").exists() and (dest / "maybe.xmp").exists()
+    assert _rating_label((dest / "fav.xmp").read_text()) == (5, "Green")     # favorite
+    assert _rating_label((dest / "maybe.xmp").read_text()) == (3, "Yellow")  # maybe
+    # the sidecar sits beside its original, both flat in dest
+    assert (dest / "fav.jpg").exists()
+
+
+def test_export_xmp_can_be_disabled(tmp_store, tmp_path):
+    dest = tmp_path / "out"
+    res = export_mod.export_to_folder(tmp_store, _seed(tmp_store, tmp_path / "src"), dest, write_xmp=False)
+    assert res["xmp"] == 0
+    assert not any(p.suffix == ".xmp" for p in dest.iterdir())
+
+
+def test_export_zip_includes_xmp_sidecars(tmp_store, tmp_path):
+    """The zip carries each original followed by its sidecar, timestamped to match the photo."""
+    src = tmp_path / "src"
+    sid = _seed(tmp_store, src)
+    capture = datetime.datetime(2023, 8, 20, 18, 9, 12).timestamp()
+    pid = next(p["id"] for p in tmp_store.list_photos(sid) if p["filename"] == "fav.jpg")
+    tmp_store._conn.execute("UPDATE photos SET ctime=? WHERE id=?", (capture, pid))
+    tmp_store._conn.commit()
+
+    zpath = tmp_path / "picks.zip"
+    res = export_mod.export_to_zip(tmp_store, sid, zpath)
+    assert res["xmp"] == 2
+    with zipfile.ZipFile(zpath) as zf:
+        assert set(zf.namelist()) == {"fav.jpg", "fav.xmp", "maybe.jpg", "maybe.xmp"}
+        assert _rating_label(zf.read("fav.xmp").decode()) == (5, "Green")
+        # sidecar shares the photo's capture date so the pair sorts together by date
+        assert zf.getinfo("fav.xmp").date_time[:3] == (2023, 8, 20)
+
+
+def test_export_xmp_sidecar_collision_does_not_clobber(tmp_store, tmp_path):
+    """A raw+jpeg pair sharing a basename maps to the same .xmp name; both must survive."""
+    src = tmp_path / "src"
+    sid = tmp_store.create_session(str(src))
+    for name, is_raw in (("DSC1.NEF", True), ("DSC1.JPG", False)):
+        p = write_jpeg(src / name)  # bytes don't matter here, only the path/extension
+        pid = tmp_store.add_photo(sid, name, str(p), is_raw=is_raw)
+        tmp_store.save_analysis(pid, emb=None, meta={}, axes={}, cats={}, overall=0.7,
+                                reasons=[], group_idx=0, in_group_order=0, suggested=False)
+        tmp_store.add_decision(sid, pid, "favorite")
+    dest = tmp_path / "out"
+    res = export_mod.export_to_folder(tmp_store, sid, dest)
+    assert res["exported"] == 2 and res["xmp"] == 2
+    xmps = sorted(p.name for p in dest.iterdir() if p.suffix == ".xmp")
+    assert xmps == ["DSC1.xmp", "DSC1_1.xmp"]  # second sidecar disambiguated, not overwritten
