@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
-  downloadExport,
   type DecisionAction,
   type Group,
   type GroupsResponse,
   type ViewMode,
 } from "../api";
+import { exportWithCheck } from "../lib/exportWithCheck";
 import { useDecision } from "../useDecision";
 import { useSessionData } from "../useSessionData";
 import { useI18n } from "../i18n";
@@ -348,7 +348,7 @@ export default function SessionView({ sessionId, onHome }: Props) {
         onSetMode={changeMode}
         hideSorted={hideSorted}
         onToggleHide={() => setHideSorted((v) => !v)}
-        onExportZip={() => downloadExport(sessionId, "zip")}
+        onExportZip={() => exportWithCheck(sessionId, "zip", t("export_none_found"))}
         nSuggestions={nSuggestions}
         onAcceptSuggestions={() => acceptMut.mutate()}
         onRename={(title) => renameMut.mutate(title)}

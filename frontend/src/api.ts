@@ -255,3 +255,15 @@ export function downloadExport(sessionId: string, format: ExportFormat = "zip"):
   a.click();
   a.remove();
 }
+
+export interface ExportCheck {
+  selected: number; // picks (favorite+maybe), or favorites for the gallery, chosen in the cull
+  found: number; // how many of those originals are still on disk
+  missing: number; // selected − found
+}
+
+// Cheap pre-flight before a download: the server reports how many selected originals still exist on
+// disk WITHOUT building the zip, so the UI can warn instead of downloading an empty/short archive.
+export function exportCheck(sessionId: string, format: ExportFormat = "zip"): Promise<ExportCheck> {
+  return getJson<ExportCheck>(`/api/sessions/${sessionId}/export?format=${format}&check=1`);
+}

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { downloadExport, getFeed, type FeedPhoto } from "../api";
+import { getFeed, type FeedPhoto } from "../api";
+import { exportWithCheck } from "../lib/exportWithCheck";
 import { useI18n } from "../i18n";
 import ErrorState from "./ErrorState";
 
@@ -42,7 +43,7 @@ export default function FeedView({ sessionId }: Props) {
         <p className="feed-hint muted small">{t("feed_hint", { n: photos.length })}</p>
         <button
           className="btn btn-accent btn-sm"
-          onClick={() => downloadExport(sessionId, "gallery")}
+          onClick={() => exportWithCheck(sessionId, "gallery", t("export_none_found"))}
           data-tip={t("feed_download_title")}
         >
           {t("feed_download")}

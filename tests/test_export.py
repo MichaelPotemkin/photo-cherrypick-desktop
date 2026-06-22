@@ -197,6 +197,56 @@ def test_export_zip_includes_xmp_sidecars(tmp_store, tmp_path):
         assert zf.getinfo("fav.xmp").date_time[:3] == (2023, 8, 20)
 
 
+# --- missing-originals guard (no silent empty zip) + preflight ---
+
+def test_export_to_zip_all_missing_raises_and_cleans_up(tmp_store, tmp_path):
+    """All picks' originals gone (folder moved/deleted) → error, not a misleading 22-byte empty zip."""
+    src = tmp_path / "src"
+    sid = _seed(tmp_store, src)
+    (src / "fav.jpg").unlink()
+    (src / "maybe.jpg").unlink()          # both picks' originals gone
+    zpath = tmp_path / "picks.zip"
+    with pytest.raises(ValueError):
+        export_mod.export_to_zip(tmp_store, sid, zpath)
+    assert not zpath.exists()             # the empty zip is removed, not left behind
+
+
+def test_export_to_folder_all_missing_raises(tmp_store, tmp_path):
+    src = tmp_path / "src"
+    sid = _seed(tmp_store, src)
+    (src / "fav.jpg").unlink()
+    (src / "maybe.jpg").unlink()
+    with pytest.raises(ValueError):
+        export_mod.export_to_folder(tmp_store, sid, tmp_path / "out")
+
+
+def test_export_gallery_all_missing_raises_and_cleans_up(tmp_store, tmp_path):
+    src = tmp_path / "src"
+    sid = _seed_feed(tmp_store, src, [("a.jpg", 0.9), ("b.jpg", 0.5)])
+    (src / "a.jpg").unlink()
+    (src / "b.jpg").unlink()
+    zpath = tmp_path / "g.zip"
+    with pytest.raises(ValueError):
+        export_mod.export_feed_to_zip(tmp_store, sid, zpath)
+    assert not zpath.exists()
+
+
+def test_export_preflight_picks_counts(tmp_store, tmp_path):
+    src = tmp_path / "src"
+    sid = _seed(tmp_store, src)            # 1 favorite + 1 maybe = 2 picks
+    assert export_mod.export_preflight(tmp_store, sid) == {"selected": 2, "found": 2, "missing": 0}
+    (src / "fav.jpg").unlink()             # one pick's original vanishes
+    assert export_mod.export_preflight(tmp_store, sid) == {"selected": 2, "found": 1, "missing": 1}
+
+
+def test_export_preflight_gallery_counts(tmp_store, tmp_path):
+    src = tmp_path / "src"
+    sid = _seed_feed(tmp_store, src, [("a.jpg", 0.9), ("b.jpg", 0.5)])
+    assert export_mod.export_preflight(tmp_store, sid, feed=True) == {"selected": 2, "found": 2, "missing": 0}
+    (src / "a.jpg").unlink()
+    assert export_mod.export_preflight(tmp_store, sid, feed=True) == {"selected": 2, "found": 1, "missing": 1}
+
+
 # --- gallery export (favorites in Feed order, slot-numbered) ---
 
 def _seed_feed(store, src_dir, favs):

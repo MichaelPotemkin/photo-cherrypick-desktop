@@ -94,6 +94,8 @@ const en: Dict = {
   download_picks: "⬇ Download picks",
   download_disabled_title: "Mark some photos favorite or maybe first",
   download_title: "Download your picks (favorites + maybe) as a ZIP of the original files",
+  export_none_found:
+    "Couldn't find any of your selected photos on disk — the original files may have been moved, renamed, or deleted from the source folder.",
 
   // --- in-app updater (bottom of screen) ---
   version_label: "version {v}",
@@ -296,6 +298,8 @@ const uk: Dict = {
   download_picks: "⬇ Завантажити обране",
   download_disabled_title: "Спершу позначте кілька фото як обране або під питанням",
   download_title: "Завантажити ваше обране (обране + під питанням) як ZIP з оригіналами",
+  export_none_found:
+    "Не вдалося знайти жодного з вибраних фото на диску — оригінальні файли могли перемістити, перейменувати або видалити з вихідної папки.",
 
   // --- in-app updater (bottom of screen) ---
   version_label: "версія {v}",
@@ -488,6 +492,8 @@ const ru: Dict = {
   download_picks: "⬇ Скачать выбранное",
   download_disabled_title: "Сначала отметьте несколько фото как выбранное или под вопросом",
   download_title: "Скачать ваш выбор (выбранное + под вопросом) как ZIP с оригиналами",
+  export_none_found:
+    "Не удалось найти ни одного из выбранных фото на диске — оригинальные файлы могли переместить, переименовать или удалить из исходной папки.",
 
   // --- in-app updater (bottom of screen) ---
   version_label: "версия {v}",

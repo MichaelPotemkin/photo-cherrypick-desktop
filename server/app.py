@@ -172,35 +172,40 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     # --- export ---
     @app.get("/api/sessions/{sid}/export")
-    def export(sid: str, format: str = "zip"):
+    def export(sid: str, format: str = "zip", check: bool = False):
         # format="zip": all favorites + maybes as the untouched originals (+ XMP sidecars).
         # format="gallery": the favorites only, in planned Feed order, slot-numbered for posting.
         if not store.get_session(sid):
             raise HTTPException(404, "unknown session")
-        if format in ("zip", "gallery"):
-            fd, tmp_name = tempfile.mkstemp(suffix=".zip", prefix="cull_")
-            os.close(fd)
-            tmp = Path(tmp_name)
-            try:
-                if format == "gallery":
-                    export_mod.export_feed_to_zip(store, sid, tmp)
-                else:
-                    export_mod.export_to_zip(store, sid, tmp)
-            except ValueError as e:
-                tmp.unlink(missing_ok=True)
-                raise HTTPException(400, str(e))
-            except Exception:
-                tmp.unlink(missing_ok=True)  # don't leak a partial temp zip on any failure
-                raise
-            sess = store.get_session(sid)
-            safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in (sess["title"] or "picks"))
-            kind = "gallery" if format == "gallery" else "picks"
-            # delete the temp zip after it's been streamed to the client
-            return FileResponse(
-                tmp, media_type="application/zip", filename=f"{safe}_{kind}.zip",
-                background=BackgroundTask(lambda p=tmp: p.unlink(missing_ok=True)),
-            )
-        raise HTTPException(400, f"bad format: {format}")
+        if format not in ("zip", "gallery"):
+            raise HTTPException(400, f"bad format: {format}")
+        if check:
+            # cheap pre-flight (no zip built): how many selected originals are actually on disk, so
+            # the UI can warn before downloading instead of handing back an empty/short archive.
+            return export_mod.export_preflight(store, sid, feed=(format == "gallery"))
+
+        fd, tmp_name = tempfile.mkstemp(suffix=".zip", prefix="cull_")
+        os.close(fd)
+        tmp = Path(tmp_name)
+        try:
+            if format == "gallery":
+                export_mod.export_feed_to_zip(store, sid, tmp)
+            else:
+                export_mod.export_to_zip(store, sid, tmp)
+        except ValueError as e:
+            tmp.unlink(missing_ok=True)
+            raise HTTPException(400, str(e))
+        except Exception:
+            tmp.unlink(missing_ok=True)  # don't leak a partial temp zip on any failure
+            raise
+        sess = store.get_session(sid)
+        safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in (sess["title"] or "picks"))
+        kind = "gallery" if format == "gallery" else "picks"
+        # delete the temp zip after it's been streamed to the client
+        return FileResponse(
+            tmp, media_type="application/zip", filename=f"{safe}_{kind}.zip",
+            background=BackgroundTask(lambda p=tmp: p.unlink(missing_ok=True)),
+        )
 
     # --- local image serving (replaces the CDN 302 redirect) ---
     @app.get("/api/img/{pid}/{size}")

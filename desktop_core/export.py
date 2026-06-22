@@ -108,6 +108,29 @@ def _unique(dest_dir: Path, name: str) -> Path:
     return dest_dir / f"{stem}_{i}{suffix}"
 
 
+def _all_missing_error(missing: int) -> ValueError:
+    """Raised when there ARE picks but every one of their originals is gone from disk — so the export
+    would otherwise hand back a misleading EMPTY archive (the source folder was moved/renamed/deleted
+    after culling). Surfacing it as an error lets the UI say so instead of producing a 22-byte zip."""
+    return ValueError(
+        f"none of the {missing} selected photos' original files were found on disk — "
+        "they may have been moved, renamed, or deleted from the original folder"
+    )
+
+
+def export_preflight(store: CullStore, sid: str, feed: bool = False) -> dict:
+    """Count what an export would actually contain WITHOUT building the archive, so the UI can warn
+    before a download rather than handing back an empty/short zip. `feed=True` checks the gallery
+    (favorites) set; otherwise the picks (favorite + maybe) set."""
+    if feed:
+        from .views import feed_ordered_favorites
+        paths = [row["original_path"] for row in feed_ordered_favorites(store, sid)]
+    else:
+        paths = [p["original_path"] for p in _picks(store, sid)]
+    found = sum(1 for p in paths if p and Path(p).exists())
+    return {"selected": len(paths), "found": found, "missing": len(paths) - found}
+
+
 def export_to_folder(
     store: CullStore, sid: str, dest: str | Path, move: bool = False, write_xmp: bool = True
 ) -> dict:
@@ -140,6 +163,8 @@ def export_to_folder(
             rating, label = _XMP_BY_STATE[photo["_state"]]
             side.write_bytes(_xmp_sidecar(rating, label))
             xmp += 1
+    if not exported:
+        raise _all_missing_error(missing)
     return {"dest": str(dest), "moved": move, "exported": exported, "missing": missing, "xmp": xmp}
 
 
@@ -170,6 +195,9 @@ def export_feed_to_zip(store: CullStore, sid: str, zip_path: str | Path) -> dict
             ts = row.get("ctime") or src.stat().st_mtime
             _add_to_zip(zf, src, arc, ts)
             exported += 1
+    if not exported:
+        zip_path.unlink(missing_ok=True)   # don't leave a misleading empty zip on disk
+        raise _all_missing_error(missing)
     return {"zip": str(zip_path), "exported": exported, "missing": missing}
 
 
@@ -209,4 +237,7 @@ def export_to_zip(store: CullStore, sid: str, zip_path: str | Path, write_xmp: b
                 info = zipfile.ZipInfo(_claim(Path(arc).with_suffix(".xmp").name), date_time=_zip_date(ts))
                 zf.writestr(info, _xmp_sidecar(rating, label))
                 xmp += 1
+    if not exported:
+        zip_path.unlink(missing_ok=True)   # don't leave a misleading empty zip on disk
+        raise _all_missing_error(missing)
     return {"zip": str(zip_path), "exported": exported, "missing": missing, "xmp": xmp}
