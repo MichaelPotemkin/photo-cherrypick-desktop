@@ -171,8 +171,8 @@ jobs:
           fi
           version="${GITHUB_REF_NAME#v}"
           dmg=$(ls desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg | head -1)
-          echo "Pushing $dmg to michaelpotemkin/photo-cherrypick:osx as $version"
+          echo "Pushing $dmg to fludanutiy/photo-cherrypick:osx as $version"
           curl -sL -o "$RUNNER_TEMP/butler.zip" "https://broth.itch.zone/butler/darwin-amd64/LATEST/archive/default"
           unzip -oq "$RUNNER_TEMP/butler.zip" -d "$RUNNER_TEMP/butler"
           chmod +x "$RUNNER_TEMP/butler/butler"
-          "$RUNNER_TEMP/butler/butler" push "$dmg" michaelpotemkin/photo-cherrypick:osx --userversion "$version"
+          "$RUNNER_TEMP/butler/butler" push "$dmg" fludanutiy/photo-cherrypick:osx --userversion "$version"

