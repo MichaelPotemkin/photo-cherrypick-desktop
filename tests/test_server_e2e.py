@@ -113,6 +113,27 @@ def test_export_nothing_is_400(client, src_folder):
     assert client.get(f"/api/sessions/{sid}/export?format=zip").status_code == 400  # no picks
 
 
+def test_export_check_and_missing_originals_is_400(client, src_folder):
+    """The check pre-flight reports found/missing; an all-missing export is a clear 400, not a zip."""
+    import shutil
+
+    sid = client.post("/api/sessions", json={"path": src_folder}).json()["id"]
+    pid = client.get(f"/api/sessions/{sid}/groups").json()["groups"][0]["photos"][0]["id"]
+    client.post(f"/api/photos/{pid}/decision", json={"action": "favorite"})
+
+    assert client.get(f"/api/sessions/{sid}/export?format=zip&check=1").json() == {
+        "selected": 1, "found": 1, "missing": 0,
+    }
+
+    shutil.rmtree(src_folder)  # the source folder vanishes after culling
+
+    assert client.get(f"/api/sessions/{sid}/export?format=zip&check=1").json() == {
+        "selected": 1, "found": 0, "missing": 1,
+    }
+    # the actual export is now a clear 400 (clean error), not a misleading empty zip
+    assert client.get(f"/api/sessions/{sid}/export?format=zip").status_code == 400
+
+
 def test_spa_deep_link_falls_back_and_api_404_stays_json(client):
     import server.app as appmod
     spa = Path(appmod.__file__).resolve().parent.parent / "frontend" / "dist"
