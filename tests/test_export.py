@@ -197,6 +197,92 @@ def test_export_zip_includes_xmp_sidecars(tmp_store, tmp_path):
         assert zf.getinfo("fav.xmp").date_time[:3] == (2023, 8, 20)
 
 
+# --- gallery export (favorites in Feed order, slot-numbered) ---
+
+def _seed_feed(store, src_dir, favs):
+    """A session with `favs` = [(name, overall)] each marked favorite, plus one maybe and one trash
+    that must NOT appear in the gallery export. No embeddings → plan_feed orders by descending quality,
+    so the feed order is deterministic for assertions."""
+    sid = store.create_session(str(src_dir))
+    for name, overall in favs:
+        p = write_jpeg(src_dir / name)
+        pid = store.add_photo(sid, name, str(p), is_raw=False)
+        store.save_analysis(pid, emb=None, meta={}, axes={}, cats={}, overall=overall,
+                            reasons=[], group_idx=0, in_group_order=0, suggested=False)
+        store.add_decision(sid, pid, "favorite")
+    for name, action in (("perhaps.jpg", "maybe"), ("nope.jpg", "delete")):
+        p = write_jpeg(src_dir / name)
+        pid = store.add_photo(sid, name, str(p), is_raw=False)
+        store.save_analysis(pid, emb=None, meta={}, axes={}, cats={}, overall=0.5,
+                            reasons=[], group_idx=0, in_group_order=0, suggested=False)
+        store.add_decision(sid, pid, action)
+    store.set_total(sid, len(favs) + 2)
+    return sid
+
+
+def test_export_gallery_orders_favorites_and_numbers_slots(tmp_store, tmp_path):
+    src = tmp_path / "src"
+    sid = _seed_feed(tmp_store, src, [("a.jpg", 0.5), ("b.jpg", 0.9), ("c.jpg", 0.7)])
+    zpath = tmp_path / "gallery.zip"
+    res = export_mod.export_feed_to_zip(tmp_store, sid, zpath)
+    assert res["exported"] == 3 and res["missing"] == 0
+    with zipfile.ZipFile(zpath) as zf:
+        names = zf.namelist()
+    # favorites only (no maybe/trash), slot-prefixed, in feed order (b=0.9, c=0.7, a=0.5)
+    assert names == ["01_b.jpg", "02_c.jpg", "03_a.jpg"]
+
+
+def test_export_gallery_order_matches_feed_view(tmp_store, tmp_path):
+    """The downloaded gallery must match the on-screen Feed exactly — same order, same slot numbers."""
+    from desktop_core import views
+    sid = _seed_feed(tmp_store, tmp_path / "src", [("a.jpg", 0.5), ("b.jpg", 0.9), ("c.jpg", 0.7)])
+    feed = views.feed_response(tmp_store, sid)["photos"]
+    expected = [f"{p['slot']:02d}_{p['filename']}" for p in feed]
+    zpath = tmp_path / "g.zip"
+    export_mod.export_feed_to_zip(tmp_store, sid, zpath)
+    with zipfile.ZipFile(zpath) as zf:
+        assert zf.namelist() == expected
+
+
+def test_export_gallery_excludes_maybe_and_trash(tmp_store, tmp_path):
+    sid = _seed_feed(tmp_store, tmp_path / "src", [("a.jpg", 0.8)])
+    zpath = tmp_path / "g.zip"
+    export_mod.export_feed_to_zip(tmp_store, sid, zpath)
+    with zipfile.ZipFile(zpath) as zf:
+        names = zf.namelist()
+    assert names == ["01_a.jpg"]                                  # the single favorite only
+    assert not any("perhaps" in n or "nope" in n for n in names)  # maybe/trash absent
+
+
+def test_export_gallery_no_favorites_raises(tmp_store, tmp_path):
+    src = tmp_path / "src"
+    sid = tmp_store.create_session(str(src))
+    p = write_jpeg(src / "x.jpg")
+    pid = tmp_store.add_photo(sid, "x.jpg", str(p), is_raw=False)
+    tmp_store.save_analysis(pid, emb=None, meta={}, axes={}, cats={}, overall=0.5,
+                            reasons=[], group_idx=0, in_group_order=0, suggested=False)
+    tmp_store.add_decision(sid, pid, "maybe")  # a maybe is not a favorite → no feed to export
+    with pytest.raises(ValueError):
+        export_mod.export_feed_to_zip(tmp_store, sid, tmp_path / "g.zip")
+
+
+def test_export_gallery_counts_missing_originals(tmp_store, tmp_path):
+    src = tmp_path / "src"
+    sid = _seed_feed(tmp_store, src, [("a.jpg", 0.9), ("b.jpg", 0.5)])
+    (src / "a.jpg").unlink()  # a favorite's original vanished from disk
+    res = export_mod.export_feed_to_zip(tmp_store, sid, tmp_path / "g.zip")
+    assert res["exported"] == 1 and res["missing"] == 1
+
+
+def test_export_gallery_has_no_xmp_sidecars(tmp_store, tmp_path):
+    # the gallery export is for posting in order, not editing — no .xmp sidecars
+    sid = _seed_feed(tmp_store, tmp_path / "src", [("a.jpg", 0.9), ("b.jpg", 0.5)])
+    zpath = tmp_path / "g.zip"
+    export_mod.export_feed_to_zip(tmp_store, sid, zpath)
+    with zipfile.ZipFile(zpath) as zf:
+        assert not any(n.endswith(".xmp") for n in zf.namelist())
+
+
 def test_export_xmp_sidecar_collision_does_not_clobber(tmp_store, tmp_path):
     """A raw+jpeg pair sharing a basename maps to the same .xmp name; both must survive."""
     src = tmp_path / "src"

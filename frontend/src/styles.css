@@ -714,6 +714,17 @@ body {
 .feed-wrap {
   padding: 4px 4px 64px;
 }
+.feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 760px;
+  margin-bottom: 14px;
+}
+.feed-head .feed-hint {
+  margin: 0;
+}
 .feed-hint {
   margin: 0 0 14px;
 }

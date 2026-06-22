@@ -134,12 +134,13 @@ def _burst_groups(store: CullStore, sid: str, photos: dict, analyses: dict, stat
     return groups
 
 
-def feed_response(store: CullStore, sid: str) -> dict | None:
-    """Ordered feed of the FAVORITES, arranged for a balanced gallery/IG grid (see feed.plan_feed).
-    Each photo carries a `scale` (close/medium/wide) and 1-based `slot`."""
-    sess = store.get_session(sid)
-    if not sess:
-        return None
+def feed_ordered_favorites(store: CullStore, sid: str) -> list[dict]:
+    """The FAVORITES in planned gallery/feed order (see feed.plan_feed), each as the stored photo row
+    annotated with a 1-based `slot` and a `scale` (close/medium/wide).
+
+    The single source of feed ordering: the Feed view (`feed_response`) and the gallery export both
+    build on it, so a downloaded gallery matches what's on screen exactly. Returns [] when the session
+    has no favorites."""
     photos = {p["id"]: p for p in store.list_photos(sid)}
     analyses = store.get_analyses(sid)
     states = store.current_states(sid)
@@ -161,12 +162,29 @@ def feed_response(store: CullStore, sid: str) -> dict | None:
             "overall": a["overall"] or 0.0,
         })
 
-    items = []
+    ordered = []
     for pos, rec in enumerate(plan_feed(records)):
-        pid = rec["id"]
-        obj = _photo_obj(pid, photos[pid], analyses[pid], states.get(pid, "none"), False)
-        obj["scale"] = shot_scale(rec)
-        obj["slot"] = pos + 1
+        row = dict(photos[rec["id"]])   # copy: don't mutate the cached store row
+        row["slot"] = pos + 1
+        row["scale"] = shot_scale(rec)
+        ordered.append(row)
+    return ordered
+
+
+def feed_response(store: CullStore, sid: str) -> dict | None:
+    """Ordered feed of the FAVORITES, arranged for a balanced gallery/IG grid (see feed.plan_feed).
+    Each photo carries a `scale` (close/medium/wide) and 1-based `slot`."""
+    sess = store.get_session(sid)
+    if not sess:
+        return None
+    analyses = store.get_analyses(sid)
+    states = store.current_states(sid)
+    items = []
+    for row in feed_ordered_favorites(store, sid):
+        pid = row["id"]
+        obj = _photo_obj(pid, row, analyses[pid], states.get(pid, "none"), False)
+        obj["scale"] = row["scale"]
+        obj["slot"] = row["slot"]
         items.append(obj)
     return {"session": session_summary(store, sess), "photos": items}
 
