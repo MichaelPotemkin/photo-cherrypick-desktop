@@ -155,6 +155,9 @@ const en: Dict = {
   feed_empty_post: " to plan your feed.",
   feed_hint:
     "{n} favorites arranged for a balanced grid — alternating shot scale, scenes spread out. Reading order is top-left first.",
+  feed_download: "⬇ Download gallery",
+  feed_download_title:
+    "Download the favorites as a ZIP, numbered 01_, 02_, … in this feed order so they post in sequence",
 
   // --- progress ---
   status_label: "Status",
@@ -351,6 +354,9 @@ const uk: Dict = {
   feed_empty_post: ", щоб скласти стрічку.",
   feed_hint:
     "{n} обраних розкладено у збалансовану сітку — чергування планів, сцени рознесені. Порядок читання — згори зліва.",
+  feed_download: "⬇ Завантажити галерею",
+  feed_download_title:
+    "Завантажити обране як ZIP, пронумероване 01_, 02_, … у цьому порядку стрічки, щоб публікувати послідовно",
 
   status_label: "Статус",
   st_pending: "очікує",
@@ -540,6 +546,9 @@ const ru: Dict = {
   feed_empty_post: ", чтобы составить ленту.",
   feed_hint:
     "{n} выбранных разложено в сбалансированную сетку — чередование планов, сцены разнесены. Порядок чтения — сверху слева.",
+  feed_download: "⬇ Скачать галерею",
+  feed_download_title:
+    "Скачать выбранное как ZIP, пронумерованное 01_, 02_, … в этом порядке ленты, чтобы публиковать по порядку",
 
   status_label: "Статус",
   st_pending: "ожидает",

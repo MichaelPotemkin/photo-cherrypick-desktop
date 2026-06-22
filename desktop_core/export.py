@@ -143,6 +143,36 @@ def export_to_folder(
     return {"dest": str(dest), "moved": move, "exported": exported, "missing": missing, "xmp": xmp}
 
 
+def export_feed_to_zip(store: CullStore, sid: str, zip_path: str | Path) -> dict:
+    """Export the FAVORITES in planned gallery/feed order, filenames prefixed with their 1-based slot
+    (`01_`, `02_`, …) so they upload to a gallery / Instagram in the planned sequence.
+
+    Favorites only — maybes aren't part of the feed. The slot order matches the Feed view exactly
+    (shared `views.feed_ordered_favorites`). Always non-destructive; no XMP sidecars (the gallery
+    export is for posting, not editing). Streams each file."""
+    # Local import: keeps this module light at load time and avoids any import cycle with views/feed.
+    from .views import feed_ordered_favorites
+
+    ordered = feed_ordered_favorites(store, sid)
+    if not ordered:
+        raise ValueError("nothing to export — no favorites to arrange into a gallery")
+
+    zip_path = Path(zip_path)
+    pad = max(2, len(str(len(ordered))))   # zero-pad so 100+ frames still sort in slot order
+    exported = missing = 0
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_STORED) as zf:
+        for row in ordered:
+            src = Path(row["original_path"])
+            if not src.exists():
+                missing += 1
+                continue
+            arc = f"{row['slot']:0{pad}d}_{src.name}"
+            ts = row.get("ctime") or src.stat().st_mtime
+            _add_to_zip(zf, src, arc, ts)
+            exported += 1
+    return {"zip": str(zip_path), "exported": exported, "missing": missing}
+
+
 def export_to_zip(store: CullStore, sid: str, zip_path: str | Path, write_xmp: bool = True) -> dict:
     """Bundle every favorite/maybe original, flat, into a zip (always non-destructive).
 

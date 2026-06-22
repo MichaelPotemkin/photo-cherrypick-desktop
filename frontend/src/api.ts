@@ -241,11 +241,13 @@ export async function postDecision(
 // Direct export URL (token in query so a plain download link can authenticate). The ZIP
 // can be large (full-res originals); a direct link lets the browser stream it to disk
 // instead of buffering it in memory. The server sets Content-Disposition for the filename.
-export function exportUrl(sessionId: string, format: "zip" = "zip"): string {
+export type ExportFormat = "zip" | "gallery"; // "zip" = picks (fav+maybe); "gallery" = feed-ordered favorites
+
+export function exportUrl(sessionId: string, format: ExportFormat = "zip"): string {
   return `${API_BASE}/api/sessions/${sessionId}/export?format=${format}&token=${encodeURIComponent(API_TOKEN)}`;
 }
 
-export function downloadExport(sessionId: string, format: "zip" = "zip"): void {
+export function downloadExport(sessionId: string, format: ExportFormat = "zip"): void {
   const a = document.createElement("a");
   a.href = exportUrl(sessionId, format);
   a.rel = "noopener";
