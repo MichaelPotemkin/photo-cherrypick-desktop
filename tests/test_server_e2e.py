@@ -186,3 +186,28 @@ def test_scene_mode_groups_keepers_and_excludes_trash(client, src_folder):
     # burst mode still shows every photo, trashed included
     burst_ids = {p["id"] for g in client.get(f"/api/sessions/{sid}/groups").json()["groups"] for p in g["photos"]}
     assert trash_id in burst_ids and len(burst_ids) == 3
+
+
+def test_delete_removes_session_cache_dir(client, src_folder, tmp_path):
+    """Deleting a session removes its whole cache/{sid} folder — previews, thumbs, and the dir itself
+    (the old glob unlinked files but left an empty dir behind every time)."""
+    sid = client.post("/api/sessions", json={"path": src_folder}).json()["id"]
+    cache_sid = tmp_path / "data" / "cache" / sid
+    assert cache_sid.is_dir() and any(cache_sid.iterdir())   # previews/thumbs were written here
+    assert client.delete(f"/api/sessions/{sid}").status_code == 200
+    assert not cache_sid.exists()                            # whole folder gone — no leftover
+
+
+def test_sweep_orphan_cache_reclaims_deleted_sessions(tmp_path):
+    """The startup sweep removes cache folders with no matching session and reports the bytes
+    reclaimed, leaving live sessions untouched."""
+    from server.app import _sweep_orphan_cache
+    cache = tmp_path / "cache"
+    for sid, n in (("live1", 1000), ("dead1", 2000), ("dead2", 3000)):
+        (cache / sid).mkdir(parents=True)
+        (cache / sid / "x_preview.jpg").write_bytes(b"x" * n)
+    freed = _sweep_orphan_cache(cache, {"live1"})
+    assert freed == 2000 + 3000                                  # only orphan bytes counted
+    assert (cache / "live1").is_dir()                            # live session kept
+    assert not (cache / "dead1").exists() and not (cache / "dead2").exists()  # orphans removed
+    assert _sweep_orphan_cache(tmp_path / "no-cache-here", set()) == 0   # missing dir -> no-op

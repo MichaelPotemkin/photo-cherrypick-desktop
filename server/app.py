@@ -8,6 +8,7 @@ singletons are not thread-safe); set `CULL_SYNC=1` to process inline (used by te
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 import tempfile
 import traceback
@@ -29,9 +30,29 @@ from desktop_core.raw_preview import JPEG_EXTS, OTHER_IMAGE_EXTS
 from desktop_core.store import ACTIONS, CullStore
 
 DATA_DIR = Path(os.environ.get("CULL_DATA_DIR", Path.home() / ".photo-cherrypick-desktop"))
-CACHE_DIR = DATA_DIR / "cache"
 RUN_SYNC = os.environ.get("CULL_SYNC") == "1"
 _VIEWABLE = JPEG_EXTS | OTHER_IMAGE_EXTS | {".png"}
+
+
+def _sweep_orphan_cache(cache_dir: Path, live_ids: set[str]) -> int:
+    """Delete preview/thumb folders for sessions that no longer exist; return the bytes reclaimed.
+
+    The cull cache is `cache/{session_id}/…`. Deleting a session is supposed to remove its folder,
+    but older versions only unlinked the files (leaving the dir) or skipped cleanup entirely, so
+    orphan folders accumulate. This runs once at startup to reclaim them. Best-effort: a folder that
+    can't be sized or removed is skipped, never fatal."""
+    if not cache_dir.is_dir():
+        return 0
+    freed = 0
+    for d in cache_dir.iterdir():
+        if not d.is_dir() or d.name in live_ids:
+            continue
+        try:
+            freed += sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
+        except OSError:
+            pass
+        shutil.rmtree(d, ignore_errors=True)
+    return freed
 
 
 class CreateSession(BaseModel):
@@ -46,11 +67,14 @@ class Decision(BaseModel):
     action: str
 
 
-def _process(store: CullStore, sid: str, folder: str) -> None:
+def _process(store: CullStore, sid: str, folder: str, cache_dir: Path) -> None:
     try:
         pipeline_runner.warmup()
         items = scan_folder(folder)
-        pipeline_runner.run_session(store, sid, items, CACHE_DIR / sid)
+        # write previews under the SAME cache_dir the app reads + cleans (the per-instance one), not a
+        # module global — otherwise a custom data dir (tests, CULL_DATA_DIR) writes them somewhere the
+        # cleanup never looks, orphaning them.
+        pipeline_runner.run_session(store, sid, items, cache_dir / sid)
     except Exception as e:  # surface to the UI rather than dying silently
         # the broad catch is deliberate (a background worker must report ANY failure, not crash the
         # thread), but log the full stack so an unexpected bug is diagnosable — not just reduced to a
@@ -66,6 +90,11 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     store = CullStore(data_dir / "cull.db")
+    # Reclaim preview/thumb folders left behind by sessions that no longer exist (older versions
+    # didn't always clean up on delete). One-shot at startup — cheap and self-healing.
+    reclaimed = _sweep_orphan_cache(cache_dir, {s["id"] for s in store.list_sessions()})
+    if reclaimed:
+        print(f"[cull] reclaimed {reclaimed / 1e6:.1f} MB of orphaned preview cache", flush=True)
     executor = ThreadPoolExecutor(max_workers=1)
 
     @asynccontextmanager
@@ -93,9 +122,9 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     def submit(sid: str, folder: str) -> None:
         if RUN_SYNC:
-            _process(store, sid, folder)
+            _process(store, sid, folder, cache_dir)
         else:
-            executor.submit(_process, store, sid, folder)
+            executor.submit(_process, store, sid, folder, cache_dir)
 
     # --- sessions ---
     @app.post("/api/sessions")
@@ -129,11 +158,9 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def delete_session(sid: str):
         if not store.delete_session(sid):
             raise HTTPException(404, "unknown session")
-        for f in cache_dir.glob(f"{sid}/*"):  # best-effort cache cleanup
-            try:
-                f.unlink()
-            except OSError:
-                pass
+        # remove the whole per-session cache folder (previews + thumbs + the dir itself), not just
+        # its files — the old glob left an empty dir behind on every delete.
+        shutil.rmtree(cache_dir / sid, ignore_errors=True)
         return {"deleted": sid}
 
     @app.get("/api/sessions/{sid}/groups")
